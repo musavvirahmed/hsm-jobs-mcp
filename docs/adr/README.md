@@ -1,3 +1,6 @@
 # Architecture Decision Records
 
-Created lazily by `/domain-modeling` when a decision actually resolves. Empty on purpose at charting time.
+Created lazily by `/domain-modeling` when a decision actually resolves.
+
+- [0001 — Soft-ignore robots.txt on job-like employer paths](./0001-robots-soft-ignore-job-paths.md)
+- [0002 — Website resolution policy (KvK → official website)](./0002-website-resolution-policy.md)
