@@ -2,7 +2,7 @@
 
 **Ticket:** [MCP tool contract vs existing register tools](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/5)
 **Date:** 2026-08-26
-**Status:** proposal for grilling — **not a lock**. The lock belongs on [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7).
+**Status:** grilled proposal — **not a lock**. The lock belongs on [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7).
 
 ## Question
 
@@ -15,6 +15,30 @@ What v1 tools and arguments should **hsm-jobs-mcp** *propose* so grilling is inf
 - Explicit **non-tools:** designer-headcount, hiring-velocity charts, “sort sponsors by team size” (map briefing; grilling ticket [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7)).
 - Any title in the index; PD/UX is the **golden test**, not the corpus limit. Golden test: [Rentman Product Designer](https://rentman.io/jobs/product-designer) — `Rentman B.V.` / KvK `60733144`.
 - Licensed ≠ this vacancy will sponsor you. Most JDs omit pay and language. Return **unknown**, do not invent certainty (`CONTEXT.md`). Field *shape* for those unknowns is the [Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6) ticket.
+
+---
+
+## Grilled proposal (2026-08-26 HITL)
+
+Human-validated proposal for [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7). Still not a lock.
+
+| Topic | Proposal |
+|---|---|
+| Tools | **Two:** `search_jobs` + `get_index_status`. No `get_job` in v1. |
+| `search_jobs` args | Required **one of** `query` \| `kvk`; `limit` default **10**, max **20**. |
+| Location facet | **Fog** until later (not a v1 proposal lock). |
+| Transport | **Streamable HTTP** for product; **stdio** optional for throwaway local fixtures only. No deprecated HTTP+SSE. |
+| Result encoding | **`outputSchema` + `structuredContent` + `text` JSON copy** on every tool. |
+| Register identity on hits | Always **register join** in candidate style (registered name, KvK, match strength); never yes/no on the vacancy; weak stays weak. |
+| Composition | **Both:** server-side upstream to live **hsm-mcp** *and* docs/install snippet attach both servers (jobs + register-only). |
+| Join timing | **Hybrid:** join at index build; at query time re-validate KvKs still on the register via upstream (no full re-fuzzy per search). Server HTTP ≠ LLM tokens; batch/cache is implementation fog. |
+| Upstream down / rate-limited | **Degrade:** return jobs with last-known join + visible stale/error; never invent a stronger join. |
+| `get_index_status` | Jobs-index health only. Clients call sibling `get_register_status` for IND register freshness. |
+| `serverInfo.name` | **Fog** for [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7) / stack. |
+
+Deferred to other tickets: honesty enums ([Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6)), payload chrome ([Tool payloads with uncertainty badges](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/9)), coverage wording ([Partial-index ship rule](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/8)).
+
+Candidate ADR (offer at lock time): server-side upstream **hsm-mcp** + hybrid join + degrade-on-outage.
 
 ---
 
@@ -141,149 +165,128 @@ hsm-mcp already follows this: two tools, long caveat-laden descriptions, `limit`
 - Remote: `mcpServers.<name>.url` (+ optional `headers` / OAuth `auth`). Local: `command` / `args` / `env` (stdio).
 - Same JSON-RPC tools as any MCP server — **no Cursor-specific input schema**. Conventions that matter: short snake_case names, detailed descriptions (the model only sees schema + description), remote HTTP if the index is shared.
 
-Implication: a Cursor user who already has **hsm-mcp** (`ind-sponsors` → `https://hsm.codealan.com/mcp`) should be able to add **hsm-jobs-mcp** as a second server without tool-name clashes.
+Implication: a Cursor user who already has **hsm-mcp** (`ind-sponsors` → `https://hsm.codealan.com/mcp`) should be able to add **hsm-jobs-mcp** as a second server without tool-name clashes. Grilled proposal: install snippet lists **both**.
 
 ---
 
 ## 4. Contrast: register MCP vs jobs MCP
 
-| | **hsm-mcp** (layer 1) | **hsm-jobs-mcp** (layer 2, proposed) |
+| | **hsm-mcp** (layer 1) | **hsm-jobs-mcp** (layer 2, grilled proposal) |
 |---|---|---|
-| Question it answers | “Is this organisation on the Work register?” | “Which recognised sponsors have **open jobs** matching title/location?” |
-| Identity | name + KvK only | Listing URL + brand/legal name + KvK (join, not a second register) |
-| Verdict style | Ranked **candidates**, never yes/no (ADR 0001) | Ranked **listings**; salary / language / sponsorship willingness as structured **unknown**-capable fields (honesty ticket locks the enums) |
-| Freshness tool | `get_register_status` (IND last-updated, scrape health) | Separate index health — crawl coverage, not register date. **Do not reuse the name** `get_register_status`. |
+| Question it answers | “Is this organisation on the Work register?” | “Which recognised sponsors have **open jobs** matching title/(later location)?” |
+| Identity | name + KvK only | Job URL + brand/legal name + KvK via **register join** (not a second register) |
+| Verdict style | Ranked **candidates**, never yes/no (ADR 0001) | Ranked jobs; salary / language / sponsorship willingness as structured **unknown**-capable fields (honesty ticket locks the enums) |
+| Freshness tool | `get_register_status` (IND last-updated, scrape health) | `get_index_status` — jobs-index health only. **Do not reuse** `get_register_status`. Register freshness → sibling. |
 | Golden test | KvK `60733144` → `Rentman B.V.` (live: `exact_kvk`) | Same identity **plus** `https://rentman.io/jobs/product-designer` in results |
 | Clone? | Already exists | Must not re-expose `search_sponsors` |
-
-Clients may attach **both** servers. hsm-jobs-mcp may *call* hsm-mcp or a CSV snapshot at index-build time (map fog: “call hsm-mcp at query time vs snapshot”). That is an implementation seam, not a user-facing register-search tool.
+| Upstream | — | Server calls live **hsm-mcp** for hybrid join refresh; degrade if upstream fails |
 
 ---
 
-## 5. Proposed v1 tool list (not locked)
+## 5. Proposed v1 tool list (grilled)
 
-Design goals borrowed from hsm-mcp + Anthropic: **two or three tools**, snake_case, long descriptions with caveats, `limit` caps, read-only open-world annotations. Enrich jobs with KvK in-process so the agent is not forced to chain register search for every hit.
+Design goals: **two tools**, snake_case, long descriptions with caveats, `limit` caps, read-only open-world annotations. **Register join** inside `search_jobs` so the agent is not forced to chain `search_sponsors` per hit. Upstream re-validation is **server HTTP** (quota/latency), not LLM tool tokens.
 
 ### 5.1 `search_jobs` (core)
 
 Search the **jobs index** (careers/ATS of recognised sponsors), not the IND HTML page.
 
-**Proposed arguments** (JSON Schema object; grilling may drop or rename filters — “v1 facets still a decision” on [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7)):
-
 | Argument | Type | Required | Notes |
 |---|---|---|---|
 | `query` | string | **one of `query` or `kvk`** | Job title or free-text (“Product Designer”, “UX”). Not title-filtered to PD. `minLength` ~2 like hsm-mcp. |
-| `location` | string | no | City / region / `remote` / country. Unspecified = no geo filter. |
 | `kvk` | string | **one of `query` or `kvk`** | 8-digit; “what is this sponsor hiring?”. Pattern `^[0-9]{8}$`. |
-| `limit` | integer | no | Default **10**, max **20** (same cap as hsm-mcp; slightly higher default because listings are the product). |
+| `limit` | integer | no | Default **10**, max **20**. |
+| `location` | — | — | **Fog** — not in the v1 proposal until a later decision. |
 
-**Proposed description duties** (text is part of the API, as in hsm-mcp):
+**Description duties** (text is part of the API, as in hsm-mcp):
 
 - Index is first-party careers/ATS, not aggregator boards, not LinkedIn.
-- Hits are organisations that were on the Work register at index time; licensed ≠ this vacancy sponsors an **HSM transfer**.
+- Hits carry **register join** (candidate style); licensed ≠ this vacancy sponsors an **HSM transfer**.
 - Salary, language, and sponsorship-willingness fields may be `unknown`.
-- Empty list means “not in this index,” not “no jobs exist” (partial-index ship rule is [Partial-index ship rule](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/8)).
+- Empty list means “not in this index,” not “no jobs exist” ([Partial-index ship rule](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/8)).
+- Upstream **hsm-mcp** may be used at query time for hybrid KvK still-on-register checks; if upstream fails, joins degrade with visible stale/error.
 
-**Proposed hit fields** (shape for [Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6) / [Tool payloads with uncertainty badges](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/9) to refine — not locked here):
+**Hit fields** (shape for [Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6) / [Tool payloads with uncertainty badges](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/9) — not locked here):
 
-- `title`, `listing_url` (golden test: Rentman PD URL must be able to appear here)
-- `employer_brand_name`, `registered_name`, `kvk_number`
-- `location_text`
-- salary / language / sponsorship as **explicit unknown-capable** structured fields (enums TBD by honesty grilling)
+- `title`, primary job URL (golden test: Rentman PD URL must be able to appear)
+- `employer_brand_name`, `registered_name`, `kvk_number`, match strength / join stale flags
+- `location_text` (display; not necessarily a filter facet yet)
+- salary / language / sponsorship as **explicit unknown-capable** structured fields (enums TBD)
 - `source` (e.g. ATS slug vs careers HTML) — not “LinkedIn”
-- `index_updated` (or equivalent) so citations are dated, parallel to `register_updated`
+- `index_updated` (or equivalent)
 
-Optional later: `response_format: concise | detailed` if full JD text in search blows tokens ([Anthropic](https://www.anthropic.com/engineering/writing-tools-for-agents)). Default **concise** (title, url, identity, location, honesty badges); `detailed` or a second tool for JD body.
+No v1 `get_job` / `detailed` split unless a later ticket re-opens it.
 
 **Annotations:** `readOnlyHint: true`, `openWorldHint: true`.
 
-### 5.2 `get_job` (proposed split; grilling may fold into `search_jobs`)
-
-Fetch **one** listing by `listing_url` or opaque `job_id` returned from `search_jobs`.
-
-Rationale: token efficiency — search stays short; the agent loads JD extract only when the user drills in. Anthropic also allows consolidating this into `search_jobs` with `detailed` / a `listing_url` argument. **Grill whether v1 needs the split.**
-
-If kept: required **one of** `listing_url` or `job_id`; same honesty fields as a search hit plus extracted JD text; same unknown rules.
-
-### 5.3 `get_index_status` (core)
+### 5.2 `get_index_status` (core)
 
 Parallel to hsm-mcp’s `get_register_status`, **different name**.
 
 No arguments (`additionalProperties: false`).
 
-**Proposed payload:**
+**Payload (jobs-index only):**
 
-- `jobs_count`, `sponsors_in_index` (KvKs with ≥1 listing)
+- `jobs_count`, `sponsors_in_index` (KvKs with ≥1 job)
 - `last_successful_crawl_at`, `stale` (jobs-index staleness, **not** IND register date)
-- `coverage_note` — e.g. partial ATS-only vs fuller careers pass (wording depends on [Partial-index ship rule](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/8))
-- `register_join`: how identity was attached (`hsm-mcp` live vs snapshot) — implementation fog, but the field tells the client not to treat this as register freshness
+- `coverage_note` — wording depends on [Partial-index ship rule](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/8)
 - `source_policy`: first-party careers/ATS only
 
-Do **not** duplicate `ind_last_updated` / `row_count` of the Work register; point the client at hsm-mcp’s `get_register_status` (or say “attach both servers”).
+Do **not** embed `ind_last_updated` / register `row_count` / upstream scrape health. Clients attach **hsm-mcp** and call `get_register_status`.
 
-### 5.4 Explicit non-tools (v1)
-
-Do not propose:
+### 5.3 Explicit non-tools (v1)
 
 | Not a tool | Why |
 |---|---|
 | `search_sponsors` / `get_register_status` | Already hsm-mcp. Wrap/cite. Name collision if both servers attached. |
+| `get_job` | Deferred; v1 is concise `search_jobs` only. |
 | Designer-headcount, hiring-velocity, sort-by-team-size | Layer 3 / LinkedIn. Out of scope (`CONTEXT.md`). |
 | Apply, draft cover letter, scrape-now, LinkedIn people | Map out of scope. |
 | `list_all_jobs` / dump index | Anthropic: search, don’t brute-force list. |
-| Salary-criterion calculator as a fourth *required* tool | 2026 bands live in `CONTEXT.md`; honesty grilling can put comparison **on the job hit**. A tiny `get_salary_criterion` resource/tool is optional later, not v1 core. |
+| Salary-criterion calculator as a fourth *required* tool | Honesty grilling can put comparison on the job hit. Optional later. |
 
-### 5.5 Naming
+### 5.4 Naming
 
-- Per-server names: `search_jobs`, `get_job`, `get_index_status` — distinct from `search_sponsors` / `get_register_status`.
+- Tool names: `search_jobs`, `get_index_status` — distinct from `search_sponsors` / `get_register_status`.
 - Fits Anthropic `^[a-zA-Z0-9_-]{1,64}$` and MCP name rules.
-- Server `name` in `serverInfo`: propose `hsm-jobs` (or `hsm-jobs-mcp`) so clients can prefix on collision. Not a product rename.
+- `serverInfo.name`: **fog** for the lock ticket / stack (not proposed here).
 
 ---
 
-## 6. Proposed transport (not locked)
+## 6. Proposed transport (grilled)
 
-**Propose Streamable HTTP as the v1 *product* transport**, stdio as a **dev/local** extra if useful.
+**Streamable HTTP** as the v1 *product* transport; **stdio** only for throwaway local fixtures / prototypes.
 
-Reasons (proposal, not lock):
+Reasons:
 
-1. Same client story as hsm-mcp: Cursor `url`, Claude Code `--transport http`, Claude Desktop custom connector.
-2. One shared jobs index for many MCP clients; stdio would fork a process per host and cannot be “the” hosted index.
-3. Map fog includes auth / rate limits / paid tier — Streamable HTTP is the transport that can grow HTTP auth or OAuth; stdio has no network auth ([Architecture](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture)).
-4. Spec current remote standard; do not design v1 on deprecated HTTP+SSE.
-5. Endpoint convention to match hsm-mcp: single path `/mcp` (example only; hosting is stack fog).
+1. Same client story as hsm-mcp: Cursor `url`, Claude Code `--transport http`.
+2. One shared jobs index for many MCP clients.
+3. Auth / rate limits / paid tier fog grows on HTTP, not stdio.
+4. Do not design v1 on deprecated HTTP+SSE.
+5. Endpoint convention example: `/mcp` (hosting is stack fog).
 
-**stdio** remains valid for a local fixture server during prototypes ([Tool payloads with uncertainty badges](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/9)) without implying production stdio.
-
-**Protocol revision:** hsm-mcp is on **2025-03-26** + sessions. New work should target the SDK’s current spec at implementation time (today: 2026-07-28 is current). Clients already speak both. Not a lock here.
+**Protocol revision:** target the SDK’s current spec at implementation time. Not locked here.
 
 ---
 
-## 7. Result encoding
+## 7. Result encoding (grilled)
 
-Propose (not lock):
-
-- Declare `outputSchema` for `search_jobs` / `get_job` / `get_index_status` so [Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6) can lock enums in schema, not prose.
-- Return `structuredContent` **and** a `text` JSON copy ([Tools spec](https://modelcontextprotocol.io/specification/2026-07-28/server/tools) SHOULD).
-- Mirror hsm-mcp’s honesty-in-description habit so models do not invent salary or Dutch-required.
-
-hsm-mcp’s text-only JSON is a 2025-03-26 SDK snapshot, not a reason to skip `outputSchema`.
+- Declare `outputSchema` for `search_jobs` / `get_index_status` so [Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6) can lock enums in schema.
+- Return `structuredContent` **and** a `text` JSON copy.
+- Honesty-in-description habit so models do not invent salary or Dutch-required.
 
 ---
 
-## 8. Questions for the grilling ticket
+## 8. Remaining for [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7)
 
-These are for [v1 MCP contract](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/7), informed by this file:
+Research + HITL proposal is done. The lock ticket should still formally accept or amend:
 
-1. Lock **Streamable HTTP** as product transport, with optional stdio for local prototypes?
-2. Two tools (`search_jobs` + `get_index_status`) vs three (`+ get_job`)?
-3. Required args: `query` only vs `query|kvk`? Is `location` a v1 facet?
-4. Default `limit` 10 vs 5?
-5. Must every hit include KvK even when brand/legal match is weak (candidate-style, like ADR 0001)?
-6. Attach hsm-mcp as a sibling server vs silent join inside `search_jobs` only?
-7. `outputSchema` + `structuredContent` in v1 vs text JSON like hsm-mcp?
+1. Accept the grilled table above as the v1 contract (or list deltas).
+2. Lock or leave fog: `serverInfo.name`.
+3. Confirm location facet stays fog or promote it.
+4. Optional ADR: upstream **hsm-mcp** + hybrid join + degrade.
 
-Honesty enums and payload chrome stay on [Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6) and the prototype ticket.
+Honesty enums and payload chrome stay on [Honesty model](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/6) and [Tool payloads with uncertainty badges](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/9).
 
 ---
 
@@ -294,4 +297,4 @@ Honesty enums and payload chrome stay on [Honesty model](https://github.com/musa
 - [MCP Tools 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/server/tools), [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http), [stdio](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio), [Architecture](https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture), [ToolAnnotations](https://modelcontextprotocol.io/specification/2026-07-28/schema#toolannotations)
 - [Anthropic: Define tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools), [Writing effective tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents)
 - [Cursor: MCP](https://cursor.com/docs/context/mcp)
-- This repo: `CONTEXT.md`, `AGENTS.md`
+- This repo: `CONTEXT.md`, `AGENTS.md`; HITL grill-with-docs on this ticket (2026-08-26)

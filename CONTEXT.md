@@ -4,9 +4,10 @@ Use these terms. Don’t drift to synonyms the glossary avoids.
 
 ## Product
 
-- **hsm-jobs-mcp** — working name. An MCP that answers which recognised-sponsor (Work) companies have **open jobs** matching a title/location. Not a public job portal. Not a register-only MCP. Rename is out of scope for the current Wayfinder map.
+- **hsm-jobs-mcp** — working name. An MCP that answers which recognised-sponsor (Work) companies have **open jobs** matching a title/location. Not a public job portal. Not a register-only MCP. Rename is out of scope for the current Wayfinder map. Jobs tools only: do not re-expose register search. **Server-side upstream** to **hsm-mcp** for hybrid **register join** refresh at query time; clients should also attach **hsm-mcp** for register-only questions. If upstream is down or rate-limited, **degrade**: return jobs with last-known join plus visible stale/error — do not invent a stronger join.
 - **hsm-mcp** — existing register-lookup MCP ([CodeAlanDebug/hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)). Wrap or cite. Do not clone.
 - **Golden test** — [Rentman Product Designer](https://rentman.io/jobs/product-designer): `Rentman B.V.` / KvK `60733144`. If the pipeline cannot return that URL, it is not ready.
+- **Register join** — attaching IND Work identity to an open job: registered name, KvK, and match strength in **candidate style** (ranked / scored; never a yes/no “is recognised” verdict on the vacancy). Weak joins stay visible as weak. Built at index time; at query time **hybrid** re-validate KvKs still on the register via upstream **hsm-mcp** (not a full re-fuzzy of brand names every search). _Avoid_: boolean sponsor badge on a vacancy; forcing the client model to call `search_sponsors` per hit.
 
 ## Immigration and register
 
