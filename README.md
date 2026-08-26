@@ -16,3 +16,7 @@ Plan, don’t do. Tickets are questions. Refer to them by name.
 ## Golden test
 
 [Rentman Product Designer](https://rentman.io/jobs/product-designer) — `Rentman B.V.` / KvK `60733144`. If the pipeline cannot return that URL, it is not ready.
+
+## Wayfinder map
+
+[hsm-jobs-mcp spec](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/1) (private). Open children of that issue are the tickets. Take one unblocked, unassigned child. Assign it first. Resolve it. Stop.
