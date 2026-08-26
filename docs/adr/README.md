@@ -8,3 +8,4 @@ Created lazily by `/domain-modeling` when a decision actually resolves.
 - [0004 — Partial-index ship rule (private vs shared)](./0004-partial-index-ship-rule.md)
 - [0005 — v1 MCP contract (tools, transport, encoding)](./0005-v1-mcp-contract.md)
 - [0006 — Flat honesty_* keys + `"unknown"` sentinel](./0006-honesty-payload-shape.md)
+- [0007 — Post-v1 README and MCP discovery site](./0007-post-v1-packaging-discovery.md)
