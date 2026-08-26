@@ -9,5 +9,6 @@ recognised-sponsors/cache/
 .scratch/
 tmp/
 dist/
-.cursor/
+.cursor/plans/
 *.code-workspace
+vendor/

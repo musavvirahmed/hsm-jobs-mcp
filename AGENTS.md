@@ -36,4 +36,8 @@ Single-context. Glossary in `CONTEXT.md`. ADRs in `docs/adr/` when `/domain-mode
 
 ## Skills
 
-Installed from [mattpocock/skills](https://github.com/mattpocock/skills) into this repo (editable copies). Invoke `/wayfinder` to chart or walk the map. Run `/setup-matt-pocock-skills` only if tracker wiring is missing.
+Editable copies from [mattpocock/skills](https://github.com/mattpocock/skills) (engineering + productivity buckets). Canonical files: `.agents/skills/<name>/SKILL.md`. Symlinked for Cursor (`.cursor/skills/`), Claude Code (`.claude/skills/`), and Codex (`.codex/skills/`).
+
+Invoke `/wayfinder` to chart or walk the map. Tracker wiring already lives in `docs/agents/`. Do not re-run `/setup-matt-pocock-skills` unless switching trackers.
+
+Research findings: `research/<ticket-slug>.md` on a `research/<ticket-slug>` branch.
