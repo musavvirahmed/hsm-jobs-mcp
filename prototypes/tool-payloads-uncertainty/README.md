@@ -12,4 +12,4 @@ python3 -m http.server 8765 -d prototypes/tool-payloads-uncertainty
 
 Then visit `http://127.0.0.1:8765/?variant=A` (also `B`, `C`). Arrow keys / bottom bar cycle variants.
 
-**Recommended:** variant **A** (nested `honesty`) — ADR 0006.
+**Winner:** variant **B** (flat `honesty_*` keys) — ADR 0006. A/C kept for contrast only.

@@ -142,15 +142,15 @@
   <!--
     PROTOTYPE (throwaway): Tool payloads with uncertainty badges
     Question: which JSON naming/nesting best communicates honesty unknowns?
-    Three variants via ?variant=A|B|C (tabs / arrow bar). Canonical recommendation: A.
+    Three variants via ?variant=A|B|C (tabs / arrow bar). Winner: B (flat honesty_*).
     Open: open this file in a browser, or: python3 -m http.server -d prototypes/tool-payloads-uncertainty
   -->
-  <div class="banner">THROWAWAY PROTOTYPE — not production. Pick a JSON naming variant; HTML chrome is a lens only.</div>
+  <div class="banner">THROWAWAY PROTOTYPE — not production. Winner locked: variant B (flat honesty_*). HTML chrome is a lens only.</div>
   <h1>Tool payloads with uncertainty</h1>
   <p class="meta">
     Fixture query <code>product designer</code>: Rentman Product Designer should read as a strong title hit with honest unknowns;
     aggregator intern/courier should rank lower on text relevance while showing <code>source_class: aggregator</code>.
-    Semantics locked in <code>CONTEXT.md</code> Honesty; see ADR 0006.
+    Winner: <strong>B</strong> (flat <code>honesty_*</code>). See <code>CONTEXT.md</code> Honesty and ADR 0006.
   </p>
 
   <div class="layout">
@@ -220,8 +220,7 @@
     /** @type {Record<string, { name: string, recommended?: boolean, build: () => object }>} */
     const variants = {
       A: {
-        name: "Nested honesty (canonical)",
-        recommended: true,
+        name: "Nested honesty (rejected)",
         build() {
           return {
             query: QUERY,
@@ -249,7 +248,8 @@
         }
       },
       B: {
-        name: "Flat honesty_* keys",
+        name: "Flat honesty_* keys (canonical)",
+        recommended: true,
         build() {
           const flat = (o) => ({
             title: o.title,
@@ -367,7 +367,7 @@
     }
 
     function currentVariant() {
-      const v = new URLSearchParams(location.search).get("variant") || "A";
+      const v = new URLSearchParams(location.search).get("variant") || "B";
       return ORDER.includes(v) ? v : "A";
     }
 
