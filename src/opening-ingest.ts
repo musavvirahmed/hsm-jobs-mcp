@@ -1,4 +1,5 @@
-import type { WritableJobsIndex } from "./jobs-index";
+import { extractHonesty } from "./honesty";
+import type { OpeningRecord, WritableJobsIndex } from "./jobs-index";
 import type { RegisterSource } from "./register-source";
 import {
   resolveOfficialWebsite,
@@ -19,6 +20,37 @@ export type WebsiteIngestResult = {
 export type WebsiteIngestReport = {
   results: WebsiteIngestResult[];
 };
+
+export type OpeningDraft = Omit<
+  OpeningRecord,
+  "honesty_salary" | "honesty_dutch_required" | "honesty_sponsorship_willingness"
+> & {
+  /** Structured ATS compensation only. Not FAQ, culture, or company visa pages. */
+  ats_compensation?: string | null;
+  /** Other structured ATS fields (language, visa, eligibility) joined as text. */
+  ats_structured_fields?: string | null;
+};
+
+export function openingFromDraft(draft: OpeningDraft): OpeningRecord {
+  const { ats_compensation, ats_structured_fields, ...stored } = draft;
+  return {
+    ...stored,
+    ...extractHonesty({
+      jdBody: draft.jd_extract,
+      atsCompensation: ats_compensation ?? null,
+      atsStructuredFields: ats_structured_fields ?? null,
+    }),
+  };
+}
+
+export async function ingestOpening(
+  index: WritableJobsIndex,
+  draft: OpeningDraft,
+): Promise<OpeningRecord> {
+  const opening = openingFromDraft(draft);
+  await index.upsertOpening(opening);
+  return opening;
+}
 
 export async function ingestWebsiteResolutions(opts: {
   register: RegisterSource;

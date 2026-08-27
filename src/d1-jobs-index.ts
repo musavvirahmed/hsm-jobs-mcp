@@ -242,7 +242,60 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .bind(meta.register_size, meta.register_as_of)
         .run();
     },
+    async upsertOpening(opening) {
+      await db
+        .prepare(
+          `INSERT INTO openings (
+             identity, primary_url, careers_url, ats_url, title, location, jd_extract,
+             source_class, honesty_salary, honesty_dutch_required, honesty_sponsorship_willingness,
+             register_name, register_kvk, register_join_strength, ats_family, board_token, posting_id
+           ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+           ON CONFLICT(identity) DO UPDATE SET
+             primary_url = excluded.primary_url,
+             careers_url = excluded.careers_url,
+             ats_url = excluded.ats_url,
+             title = excluded.title,
+             location = excluded.location,
+             jd_extract = excluded.jd_extract,
+             source_class = excluded.source_class,
+             honesty_salary = excluded.honesty_salary,
+             honesty_dutch_required = excluded.honesty_dutch_required,
+             honesty_sponsorship_willingness = excluded.honesty_sponsorship_willingness,
+             register_name = excluded.register_name,
+             register_kvk = excluded.register_kvk,
+             register_join_strength = excluded.register_join_strength,
+             ats_family = excluded.ats_family,
+             board_token = excluded.board_token,
+             posting_id = excluded.posting_id`,
+        )
+        .bind(
+          opening.identity,
+          opening.primary_url,
+          opening.careers_url,
+          opening.ats_url,
+          opening.title,
+          opening.location,
+          opening.jd_extract,
+          opening.source_class,
+          opening.honesty_salary,
+          dutchToSql(opening.honesty_dutch_required),
+          opening.honesty_sponsorship_willingness,
+          opening.register_name,
+          opening.register_kvk,
+          opening.register_join_strength,
+          opening.ats_family,
+          opening.board_token,
+          opening.posting_id,
+        )
+        .run();
+    },
   };
+}
+
+function dutchToSql(value: HonestyDutchRequired): string {
+  if (value === true) return "true";
+  if (value === false) return "false";
+  return "unknown";
 }
 
 function openingFromRow(row: OpeningRow): OpeningRecord {
