@@ -1,0 +1,3 @@
+# Soft-ignore robots.txt on job-like employer paths (fallback only)
+
+Layer-2 extraction needs employer-origin HTML for board fingerprinting and for Openings when no **public board feed** exists. Strictly honouring a careers `Disallow` would hide those sponsors even when jobs are publicly linked. We still **prefer vendor-host public board feeds** when the token is known (no need to hit a Disallow’d `/jobs`). Soft-ignore applies only as fallback on the employer origin, only for paths that look like jobs/careers, with an identifiable product User-Agent; unrelated Disallows stay in force. Rejected: hard-skip including vendor APIs; ignore robots on all paths; scrape Disallow’d marketing pages when a vendor feed already answers existence.

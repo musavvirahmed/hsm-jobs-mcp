@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE — Tool payloads with uncertainty</title>
+  <style>
+    :root {
+      --bg: #f6f3ee;
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #d6d3d1;
+      --panel: #fffdf9;
+      --chip-unk: #e7e5e4;
+      --chip-ok: #dcfce7;
+      --chip-bad: #fee2e2;
+      --accent: #0f766e;
+      --bar: #1c1917;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.45 "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 400px at 10% -10%, #ccfbf1 0%, transparent 55%),
+        radial-gradient(700px 360px at 100% 0%, #fde68a 0%, transparent 50%),
+        var(--bg);
+      padding: 1.5rem 1.25rem 6rem;
+    }
+    h1 { font: 700 1.35rem/1.2 "IBM Plex Serif", Georgia, serif; margin: 0 0 0.35rem; }
+    .banner {
+      border: 1px dashed #b45309;
+      background: #fffbeb;
+      color: #92400e;
+      padding: 0.55rem 0.75rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    .meta { color: var(--muted); max-width: 52rem; margin-bottom: 1.25rem; }
+    .layout {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 960px) {
+      .layout { grid-template-columns: 1.05fr 0.95fr; align-items: start; }
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .panel h2 {
+      margin: 0 0 0.75rem;
+      font: 600 0.95rem/1.2 "IBM Plex Sans", sans-serif;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    pre {
+      margin: 0;
+      overflow: auto;
+      max-height: 70vh;
+      font: 12px/1.4 "IBM Plex Mono", ui-monospace, monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .opening {
+      border-top: 1px solid var(--line);
+      padding: 0.9rem 0;
+    }
+    .opening:first-of-type { border-top: 0; padding-top: 0; }
+    .opening h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+    .opening a { color: var(--accent); }
+    .row { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.45rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+    .chip {
+      display: inline-flex;
+      gap: 0.35rem;
+      align-items: baseline;
+      border-radius: 999px;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.78rem;
+      border: 1px solid var(--line);
+      background: var(--chip-unk);
+    }
+    .chip[data-tone="known"] { background: var(--chip-ok); }
+    .chip[data-tone="warn"] { background: #ffedd5; }
+    .chip strong { font-weight: 600; }
+    .index-box {
+      background: #ecfeff;
+      border: 1px solid #a5f3fc;
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.85rem;
+      font-size: 0.88rem;
+    }
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      background: var(--bar);
+      color: #fafaf9;
+      border-radius: 999px;
+      padding: 0.45rem 0.55rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      z-index: 20;
+      font-size: 0.85rem;
+    }
+    .switcher button {
+      appearance: none;
+      border: 0;
+      background: #44403c;
+      color: inherit;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .switcher button:hover { background: #57534e; }
+    .switcher .label { min-width: 14rem; text-align: center; }
+    .rec {
+      display: inline-block;
+      margin-left: 0.35rem;
+      font-size: 0.7rem;
+      background: #134e4a;
+      color: #ccfbf1;
+      border-radius: 999px;
+      padding: 0.1rem 0.4rem;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <!--
+    PROTOTYPE (throwaway): Tool payloads with uncertainty badges
+    Question: which JSON naming/nesting best communicates honesty unknowns?
+    Three variants via ?variant=A|B|C (tabs / arrow bar). Winner: B (flat honesty_*).
+    Open: open this file in a browser, or: python3 -m http.server -d prototypes/tool-payloads-uncertainty
+  -->
+  <div class="banner">THROWAWAY PROTOTYPE — not production. Winner locked: variant B (flat honesty_*). HTML chrome is a lens only.</div>
+  <h1>Tool payloads with uncertainty</h1>
+  <p class="meta">
+    Fixture query <code>product designer</code>: Rentman Product Designer should read as a strong title hit with honest unknowns;
+    aggregator intern/courier should rank lower on text relevance while showing <code>source_class: aggregator</code>.
+    Winner: <strong>B</strong> (flat <code>honesty_*</code>). See <code>CONTEXT.md</code> Honesty and ADR 0006.
+  </p>
+
+  <div class="layout">
+    <section class="panel">
+      <h2>Rendered (light chrome)</h2>
+      <div id="render"></div>
+    </section>
+    <section class="panel">
+      <h2>Raw JSON (<span id="variant-name">A</span>)</h2>
+      <pre id="json"></pre>
+    </section>
+  </div>
+
+  <div class="switcher" role="navigation" aria-label="Prototype variant switcher">
+    <button type="button" id="prev" aria-label="Previous variant">←</button>
+    <div class="label" id="switch-label"></div>
+    <button type="button" id="next" aria-label="Next variant">→</button>
+  </div>
+
+  <script>
+    const QUERY = "product designer";
+
+    const facts = {
+      rentman: {
+        title: "Product Designer",
+        url: "https://rentman.io/jobs/product-designer",
+        ats_url: "https://jobs.ashbyhq.com/rentman",
+        location: "Utrecht",
+        register_join: {
+          name: "Rentman B.V.",
+          kvk: "60733144",
+          strength: "exact_kvk"
+        },
+        source_class: "ats_board",
+        honesty: {
+          salary: "unknown",
+          dutch_required: "unknown",
+          sponsorship_willingness: "unknown"
+        }
+      },
+      courier: {
+        title: "Bezorger Rijbewijs B",
+        url: "https://example-aggregator.invalid/jobs/coolblue-bezorger",
+        location: "Amsterdam, NL",
+        register_join: {
+          name: "Coolblue B.V.",
+          kvk: "20152449",
+          strength: "exact_kvk"
+        },
+        source_class: "aggregator",
+        honesty: {
+          salary: "unknown",
+          dutch_required: "unknown",
+          sponsorship_willingness: "unknown"
+        }
+      },
+      index: {
+        pass: "partial",
+        omissions_possible: true,
+        sponsors_attempted: 12,
+        sponsors_with_openings: 8,
+        register_size: 12931,
+        register_as_of: "2026-08-03"
+      }
+    };
+
+    /** @type {Record<string, { name: string, recommended?: boolean, build: () => object }>} */
+    const variants = {
+      A: {
+        name: "Nested honesty (rejected)",
+        build() {
+          return {
+            query: QUERY,
+            index: facts.index,
+            openings: [
+              {
+                title: facts.rentman.title,
+                url: facts.rentman.url,
+                ats_url: facts.rentman.ats_url,
+                location: facts.rentman.location,
+                register_join: facts.rentman.register_join,
+                source_class: facts.rentman.source_class,
+                honesty: { ...facts.rentman.honesty }
+              },
+              {
+                title: facts.courier.title,
+                url: facts.courier.url,
+                location: facts.courier.location,
+                register_join: facts.courier.register_join,
+                source_class: facts.courier.source_class,
+                honesty: { ...facts.courier.honesty }
+              }
+            ]
+          };
+        }
+      },
+      B: {
+        name: "Flat honesty_* keys (canonical)",
+        recommended: true,
+        build() {
+          const flat = (o) => ({
+            title: o.title,
+            url: o.url,
+            ...(o.ats_url ? { ats_url: o.ats_url } : {}),
+            location: o.location,
+            register_join: o.register_join,
+            source_class: o.source_class,
+            honesty_salary: o.honesty.salary,
+            honesty_dutch_required: o.honesty.dutch_required,
+            honesty_sponsorship_willingness: o.honesty.sponsorship_willingness
+          });
+          return {
+            query: QUERY,
+            index: facts.index,
+            openings: [flat(facts.rentman), flat(facts.courier)]
+          };
+        }
+      },
+      C: {
+        name: "Deeper salary / language nest",
+        build() {
+          const deep = (o) => ({
+            title: o.title,
+            url: o.url,
+            ...(o.ats_url ? { ats_url: o.ats_url } : {}),
+            location: o.location,
+            register_join: o.register_join,
+            source_class: o.source_class,
+            honesty: {
+              salary: { raw: o.honesty.salary },
+              language: { dutch_required: o.honesty.dutch_required },
+              sponsorship_willingness: o.honesty.sponsorship_willingness
+            }
+          });
+          return {
+            query: QUERY,
+            index: facts.index,
+            openings: [deep(facts.rentman), deep(facts.courier)]
+          };
+        }
+      }
+    };
+
+    const ORDER = ["A", "B", "C"];
+
+    function chip(label, value) {
+      const unk = value === "unknown" || (value && value.raw === "unknown");
+      const display = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const tone = unk ? "unk" : "known";
+      return `<span class="chip" data-tone="${tone}"><strong>${label}</strong> ${escapeHtml(display)}</span>`;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function honestyFromOpening(o) {
+      if (o.honesty) {
+        const h = o.honesty;
+        if (h.language) {
+          return {
+            salary: h.salary?.raw ?? h.salary,
+            dutch_required: h.language.dutch_required,
+            sponsorship_willingness: h.sponsorship_willingness
+          };
+        }
+        return {
+          salary: h.salary?.raw ?? h.salary,
+          dutch_required: h.dutch_required,
+          sponsorship_willingness: h.sponsorship_willingness
+        };
+      }
+      return {
+        salary: o.honesty_salary,
+        dutch_required: o.honesty_dutch_required,
+        sponsorship_willingness: o.honesty_sponsorship_willingness
+      };
+    }
+
+    function renderPayload(payload) {
+      const idx = payload.index;
+      const openingsHtml = payload.openings.map((o) => {
+        const h = honestyFromOpening(o);
+        return `
+          <article class="opening">
+            <h3>${escapeHtml(o.title)}</h3>
+            <div class="row"><a href="${escapeHtml(o.url)}">${escapeHtml(o.url)}</a></div>
+            <div class="row">${escapeHtml(o.location || "")}
+ · source_class <code>${escapeHtml(o.source_class)}</code>
+              · join <code>${escapeHtml(o.register_join.strength)}</code>
+              ${escapeHtml(o.register_join.name)} / KvK ${escapeHtml(o.register_join.kvk)}
+            </div>
+            <div class="chips">
+              ${chip("salary", h.salary)}
+              ${chip("dutch_required", h.dutch_required)}
+              ${chip("sponsorship_willingness", h.sponsorship_willingness)}
+            </div>
+          </article>`;
+      }).join("");
+
+      return `
+        <div class="index-box">
+          <strong>index</strong> pass=${escapeHtml(idx.pass)}
+          · omissions_possible=${idx.omissions_possible}
+          · sponsors_with_openings=${idx.sponsors_with_openings}/${idx.sponsors_attempted}
+          · register_as_of=${escapeHtml(idx.register_as_of)}
+        </div>
+        <div class="row">query: <code>${escapeHtml(payload.query)}</code></div>
+        ${openingsHtml}`;
+    }
+
+    function currentVariant() {
+      const v = new URLSearchParams(location.search).get("variant") || "B";
+      return ORDER.includes(v) ? v : "A";
+    }
+
+    function setVariant(v) {
+      const url = new URL(location.href);
+      url.searchParams.set("variant", v);
+      history.replaceState({}, "", url);
+      paint();
+    }
+
+    function paint() {
+      const key = currentVariant();
+      const meta = variants[key];
+      const payload = meta.build();
+      document.getElementById("json").textContent = JSON.stringify(payload, null, 2);
+      document.getElementById("render").innerHTML = renderPayload(payload);
+      document.getElementById("variant-name").textContent = key;
+      document.getElementById("switch-label").innerHTML =
+        `${key} — ${escapeHtml(meta.name)}${meta.recommended ? '<span class="rec">recommended</span>' : ""}`;
+    }
+
+    function cycle(delta) {
+      const i = ORDER.indexOf(currentVariant());
+      const next = ORDER[(i + delta + ORDER.length) % ORDER.length];
+      setVariant(next);
+    }
+
+    document.getElementById("prev").addEventListener("click", () => cycle(-1));
+    document.getElementById("next").addEventListener("click", () => cycle(1));
+    document.addEventListener("keydown", (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === "ArrowLeft") cycle(-1);
+      if (e.key === "ArrowRight") cycle(1);
+    });
+
+    paint();
+  </script>
+</body>
+</html>

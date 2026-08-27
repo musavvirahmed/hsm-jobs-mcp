@@ -1,0 +1,3 @@
+# Cautious board guess: one host-slug try per family
+
+Board tokens are often missing from HTML even when a **public board feed** exists. Pure evidence-only discovery would miss those employers; open-ended slug probing would scrape vendor directories and false-match other companies’ boards. Decision: after fingerprinting fails, allow at most one candidate token per **v1 board family**, derived only from the accepted **official website** host slug — no permutations, no register legal-name guesses. Negatively cache failed `(family, token)` until the official website or **board seed** changes (or operator invalidates). Seeds still cover the golden test (Ashby `rentman`).
