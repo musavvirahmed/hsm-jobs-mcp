@@ -27,3 +27,10 @@ jobs:
           CRAWL_SMOKE: "1"
       - name: Unit tests for crawl / re-partial seam
         run: npm test -- test/out-of-band-crawl.test.ts
+      - name: Full careers pass runner (fixture smoke)
+        run: npm run crawl:full-pass:smoke
+        env:
+          CRAWL_SMOKE: "1"
+          CRAWL_FULL_PASS: "1"
+      - name: Unit tests for full careers pass runner
+        run: npm test -- test/full-careers-pass.test.ts

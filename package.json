@@ -8,7 +8,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "crawl": "tsx scripts/run-crawl.ts",
-    "crawl:smoke": "CRAWL_SMOKE=1 tsx scripts/run-crawl.ts"
+    "crawl:smoke": "CRAWL_SMOKE=1 tsx scripts/run-crawl.ts",
+    "crawl:full-pass": "CRAWL_FULL_PASS=1 tsx scripts/run-crawl.ts",
+    "crawl:full-pass:smoke": "CRAWL_SMOKE=1 CRAWL_FULL_PASS=1 tsx scripts/run-crawl.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",

@@ -62,6 +62,40 @@ test("/health is degraded when the jobs index cannot be read", async () => {
   expect(await response.json()).toEqual({ status: "degraded" });
 });
 
+test("shared-release host does not serve /mcp while the jobs index is a partial index", async () => {
+  const response = await handleRequest(
+    mcpInitializeRequest("https://hsmjobs.musavvir.work/mcp"),
+    emptyDeps(),
+  );
+  expect(response.status).toBe(503);
+  expect(await response.text()).toMatch(/full careers pass/i);
+});
+
+test("private /mcp still serves tools on a partial index", async () => {
+  const response = await handleRequest(mcpInitializeRequest("http://127.0.0.1/mcp"), emptyDeps());
+  expect(response.ok).toBe(true);
+});
+
+function mcpInitializeRequest(url: string): Request {
+  return new Request(url, {
+    method: "POST",
+    headers: {
+      accept: "application/json, text/event-stream",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "test", version: "0.0.1" },
+      },
+    }),
+  });
+}
+
 async function readMcpJson(response: Response): Promise<{ result: { serverInfo: { name: string } } }> {
   const contentType = response.headers.get("content-type") ?? "";
   const body = await response.text();

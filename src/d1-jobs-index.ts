@@ -1,5 +1,6 @@
 import {
   EMPTY_COVERAGE_NOTE,
+  FULL_COVERAGE_NOTE,
   emptyPartialSnapshot,
   type HonestyDutchRequired,
   type IndexPass,
@@ -92,7 +93,7 @@ export function createD1JobsIndex(db: JobsIndexDatabase): JobsIndex {
         jobs_count: Number(jobs?.n ?? 0),
         last_successful_crawl: lastSuccessfulCrawl,
         stale: lastSuccessfulCrawl === null,
-        coverage_note: EMPTY_COVERAGE_NOTE,
+        coverage_note: pass === "full_careers_pass" ? FULL_COVERAGE_NOTE : EMPTY_COVERAGE_NOTE,
         source_policy: meta.source_policy,
         register_join_note: meta.register_join_note,
         index_scope: {

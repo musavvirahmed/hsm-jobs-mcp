@@ -1,4 +1,5 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
+import { isSharedReleaseHost, sharedReleaseAllowed } from "./index-pass";
 import type { JobsToolsDeps } from "./jobs-tools";
 import { createJobsMcpServer } from "./mcp-server";
 
@@ -10,6 +11,9 @@ export async function handleRequest(request: Request, deps: JobsToolsDeps): Prom
     return healthResponse(deps);
   }
   if (url.pathname === "/mcp") {
+    if (isSharedReleaseHost(url.hostname) && !(await sharedReleaseInPolicy(deps))) {
+      return new Response("Shared release waits for a full careers pass", { status: 503 });
+    }
     const handler = createMcpHandler(() => createJobsMcpServer(deps));
     return handler.fetch(request);
   }
@@ -23,5 +27,14 @@ async function healthResponse(deps: JobsToolsDeps): Promise<Response> {
     return Response.json({ status });
   } catch {
     return Response.json({ status: "degraded" satisfies CoarseHealth }, { status: 503 });
+  }
+}
+
+async function sharedReleaseInPolicy(deps: JobsToolsDeps): Promise<boolean> {
+  try {
+    const snapshot = await deps.jobsIndex.snapshot();
+    return sharedReleaseAllowed(snapshot.index_scope.pass);
+  } catch {
+    return false;
   }
 }
