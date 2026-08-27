@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { fileURLToPath } from "node:url";
@@ -6,10 +6,7 @@ import { createD1JobsIndex, type JobsIndexDatabase } from "../src/d1-jobs-index"
 import { FIXTURE_OPENINGS, FIXTURE_SNAPSHOT } from "../src/fixtures/jobs-index";
 import type { JobsIndex, OpeningRecord } from "../src/jobs-index";
 
-const MIGRATION_PATH = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../migrations/0001_jobs_index.sql",
-);
+const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../migrations");
 
 const TERMINAL_OUTCOMES: Array<{ kvk: string; outcome: string }> = [
   { kvk: "60733144", outcome: "openings_indexed" },
@@ -24,7 +21,9 @@ const TERMINAL_OUTCOMES: Array<{ kvk: string; outcome: string }> = [
 
 export function createSeededD1JobsIndex(): JobsIndex {
   const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec(readFileSync(MIGRATION_PATH, "utf8"));
+  for (const file of readdirSync(MIGRATIONS_DIR).filter((name) => name.endsWith(".sql")).sort()) {
+    sqlite.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
+  }
   sqlite
     .prepare(
       `UPDATE index_meta SET
@@ -112,6 +111,11 @@ function wrapSqlite(db: DatabaseSync): JobsIndexDatabase {
         async all<T = Record<string, unknown>>() {
           const rows = bound.length ? statement.all(...bound) : statement.all();
           return { results: rows as T[] };
+        },
+        async run() {
+          if (bound.length) statement.run(...bound);
+          else statement.run();
+          return { success: true };
         },
       };
       return api;

@@ -63,6 +63,43 @@ export interface JobsIndex {
   getOpening(primaryUrl: string): Promise<OpeningRecord | null>;
 }
 
+export type TerminalCareersOutcomeKind =
+  | "openings_indexed"
+  | "unresolved_website"
+  | "no_careers_site"
+  | "no_matching_public_board"
+  | "blocked"
+  | "unsupported_extractor";
+
+export type TerminalCareersOutcome = {
+  kvk: string;
+  outcome: TerminalCareersOutcomeKind;
+  official_website_host: string | null;
+  updated_at: string;
+};
+
+export type WebsiteOverride =
+  | { mode: "pin"; host: string }
+  | { mode: "force_unresolved" };
+
+/** Operator/ingest write plane. Jobs tools remain read-only against `JobsIndex`. */
+export interface WritableJobsIndex extends JobsIndex {
+  recordWebsiteResolution(input: {
+    kvk: string;
+    official_website_host: string | null;
+    now: string;
+    replaceClosed?: boolean;
+  }): Promise<void>;
+  getOfficialWebsite(kvk: string): Promise<string | null>;
+  getTerminalOutcome(kvk: string): Promise<TerminalCareersOutcome | null>;
+  setWebsiteOverride(kvk: string, override: WebsiteOverride, now: string): Promise<void>;
+  getWebsiteOverride(kvk: string): Promise<WebsiteOverride | null>;
+  setRegisterMeta(meta: {
+    register_size: number;
+    register_as_of: string | null;
+  }): Promise<void>;
+}
+
 export const EMPTY_COVERAGE_NOTE =
   "Jobs index is a partial index; a full careers pass is required before empty results can be treated as complete.";
 export const SOURCE_POLICY = "first-party careers/ATS only";
