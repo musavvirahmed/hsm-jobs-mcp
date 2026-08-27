@@ -42,8 +42,14 @@ test("/mcp initialize reports serverInfo.name hsm-jobs-mcp", async () => {
   expect(payload.result.serverInfo.name).toBe("hsm-jobs-mcp");
 });
 
-test("unknown paths are a boring 404", async () => {
+test("GET / serves the discovery page", async () => {
   const response = await handleRequest(new Request("http://127.0.0.1/"), emptyDeps());
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toMatch(/text\/html/);
+});
+
+test("unknown paths are a boring 404", async () => {
+  const response = await handleRequest(new Request("http://127.0.0.1/admin/scrape"), emptyDeps());
   expect(response.status).toBe(404);
 });
 

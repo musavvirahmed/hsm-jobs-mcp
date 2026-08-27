@@ -1,4 +1,5 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
+import { discoveryPageResponse } from "./discovery-page";
 import { isSharedReleaseHost, sharedReleaseAllowed } from "./index-pass";
 import type { JobsToolsDeps } from "./jobs-tools";
 import { createJobsMcpServer } from "./mcp-server";
@@ -7,6 +8,9 @@ export type CoarseHealth = "up" | "degraded" | "stale";
 
 export async function handleRequest(request: Request, deps: JobsToolsDeps): Promise<Response> {
   const url = new URL(request.url);
+  if (url.pathname === "/" && request.method === "GET") {
+    return discoveryPageResponse(url.origin);
+  }
   if (url.pathname === "/health") {
     return healthResponse(deps);
   }
