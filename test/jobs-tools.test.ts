@@ -260,6 +260,21 @@ test("search_jobs location filter keeps Utrecht and drops Amsterdam", async () =
   expect(payload.openings[0]?.location).toBe("Utrecht");
 });
 
+test("get_index_status on a seeded jobs index reports fixture coverage", async () => {
+  connected = await connectSeededIndex();
+  const result = await connected.client.callTool({ name: "get_index_status", arguments: {} });
+  expect(result.isError).toBeFalsy();
+  expect(result.structuredContent).toMatchObject({
+    jobs_count: FIXTURE_SNAPSHOT.jobs_count,
+    stale: false,
+    last_successful_crawl: FIXTURE_SNAPSHOT.last_successful_crawl,
+    source_policy: "first-party careers/ATS only",
+    index_scope: FIXTURE_SNAPSHOT.index_scope,
+  });
+  expect(result.structuredContent).not.toHaveProperty("ind_last_updated");
+  expect(result.structuredContent).not.toHaveProperty("row_count");
+});
+
 test("search_jobs honors limit default 10 and max 20", async () => {
   connected = await connectSeededIndex();
   const defaulted = await connected.client.callTool({
@@ -267,7 +282,15 @@ test("search_jobs honors limit default 10 and max 20", async () => {
     arguments: { query: "e" },
   });
   const payload = defaulted.structuredContent as { openings: unknown[] };
+  expect(payload.openings.length).toBeGreaterThan(1);
   expect(payload.openings.length).toBeLessThanOrEqual(10);
+
+  const truncated = await connected.client.callTool({
+    name: "search_jobs",
+    arguments: { query: "e", limit: 1 },
+  });
+  expect(truncated.isError).toBeFalsy();
+  expect((truncated.structuredContent as { openings: unknown[] }).openings).toHaveLength(1);
 
   const capped = await connected.client.callTool({
     name: "search_jobs",
