@@ -5,10 +5,11 @@ import {
   type IndexSnapshot,
   type OpeningRecord,
 } from "../jobs-index";
+import { openingFromDraft, type OpeningDraft } from "../opening-ingest";
 
 export const RENTMAN_PRODUCT_DESIGNER_URL = "https://rentman.io/jobs/product-designer";
 
-export const FIXTURE_OPENINGS: OpeningRecord[] = [
+const FIXTURE_DRAFTS: OpeningDraft[] = [
   {
     identity: "ashby:rentman:product-designer",
     primary_url: RENTMAN_PRODUCT_DESIGNER_URL,
@@ -19,9 +20,6 @@ export const FIXTURE_OPENINGS: OpeningRecord[] = [
     jd_extract:
       "Rentman is hiring a Product Designer in Utrecht. Competitive salary. Fluent English.",
     source_class: "ats_board",
-    honesty_salary: "unknown",
-    honesty_dutch_required: "unknown",
-    honesty_sponsorship_willingness: "unknown",
     register_name: "Rentman B.V.",
     register_kvk: "60733144",
     register_join_strength: "exact_kvk",
@@ -38,9 +36,6 @@ export const FIXTURE_OPENINGS: OpeningRecord[] = [
     location: "Amsterdam",
     jd_extract: "Salary €5,000–€6,000 per month. Dutch not required. We sponsor HSM transfers.",
     source_class: "ats_board",
-    honesty_salary: "€5,000–€6,000 per month",
-    honesty_dutch_required: false,
-    honesty_sponsorship_willingness: "stated_yes",
     register_name: "Fixture Strong Name B.V.",
     register_kvk: "11111111",
     register_join_strength: "strong_name",
@@ -57,9 +52,6 @@ export const FIXTURE_OPENINGS: OpeningRecord[] = [
     location: "Rotterdam",
     jd_extract: "Nederlands is vereist. Salaris in overleg.",
     source_class: "careers_site",
-    honesty_salary: "unknown",
-    honesty_dutch_required: true,
-    honesty_sponsorship_willingness: "unknown",
     register_name: "Fixture Holding B.V.",
     register_kvk: "22222222",
     register_join_strength: "weak",
@@ -76,9 +68,6 @@ export const FIXTURE_OPENINGS: OpeningRecord[] = [
     location: "Eindhoven",
     jd_extract: "Must already have the right to work in the Netherlands. No sponsorship.",
     source_class: "unknown",
-    honesty_salary: "unknown",
-    honesty_dutch_required: "unknown",
-    honesty_sponsorship_willingness: "stated_no",
     register_name: null,
     register_kvk: null,
     register_join_strength: "unmatched",
@@ -95,9 +84,6 @@ export const FIXTURE_OPENINGS: OpeningRecord[] = [
     location: "Amsterdam, NL",
     jd_extract: "Avonddiensten in Amsterdam.",
     source_class: "aggregator",
-    honesty_salary: "unknown",
-    honesty_dutch_required: "unknown",
-    honesty_sponsorship_willingness: "unknown",
     register_name: "Coolblue B.V.",
     register_kvk: "20152449",
     register_join_strength: "exact_kvk",
@@ -106,6 +92,8 @@ export const FIXTURE_OPENINGS: OpeningRecord[] = [
     posting_id: null,
   },
 ];
+
+export const FIXTURE_OPENINGS: OpeningRecord[] = FIXTURE_DRAFTS.map(openingFromDraft);
 
 export const FIXTURE_SNAPSHOT: IndexSnapshot = {
   jobs_count: FIXTURE_OPENINGS.length,

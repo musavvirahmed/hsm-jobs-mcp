@@ -98,6 +98,7 @@ export interface WritableJobsIndex extends JobsIndex {
     register_size: number;
     register_as_of: string | null;
   }): Promise<void>;
+  upsertOpening(opening: OpeningRecord): Promise<void>;
 }
 
 export const EMPTY_COVERAGE_NOTE =
