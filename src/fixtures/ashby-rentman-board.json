@@ -1,0 +1,47 @@
+{
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "86561042-c8f9-4a2c-9d93-c51ba421e6e7",
+      "title": "Product Designer",
+      "department": "R&D",
+      "team": "R&D",
+      "employmentType": "FullTime",
+      "location": "Utrecht",
+      "isListed": true,
+      "isRemote": true,
+      "workplaceType": "Hybrid",
+      "publishedAt": "2026-08-24T14:20:07.886+00:00",
+      "jobUrl": "https://jobs.ashbyhq.com/rentman/86561042-c8f9-4a2c-9d93-c51ba421e6e7",
+      "applyUrl": "https://jobs.ashbyhq.com/rentman/86561042-c8f9-4a2c-9d93-c51ba421e6e7/application",
+      "descriptionPlain": "ABOUT US\n\nRentman is a B2B SaaS scale-up building a smart, powerful operations management platform to support event and media production teams.\n\nWHAT WE OFFER\n - Competitive salary based on experience, plus 8% holiday allowance\n - A results-based bonus based on company performance (up to a full 13th month's salary)\n",
+      "compensation": {
+        "compensationTierSummary": null,
+        "scrapeableCompensationSalarySummary": null,
+        "compensationTiers": [],
+        "summaryComponents": []
+      }
+    },
+    {
+      "id": "eea66737-f02b-4bbe-97b4-6e34d3c281a9",
+      "title": "Head of Product Marketing",
+      "department": "Marketing",
+      "team": "Marketing",
+      "employmentType": "FullTime",
+      "location": "Utrecht",
+      "isListed": true,
+      "isRemote": true,
+      "workplaceType": "Hybrid",
+      "publishedAt": "2026-08-20T09:00:00.000+00:00",
+      "jobUrl": "https://jobs.ashbyhq.com/rentman/eea66737-f02b-4bbe-97b4-6e34d3c281a9",
+      "applyUrl": "https://jobs.ashbyhq.com/rentman/eea66737-f02b-4bbe-97b4-6e34d3c281a9/application",
+      "descriptionPlain": "Lead product marketing at Rentman.\n",
+      "compensation": {
+        "compensationTierSummary": null,
+        "scrapeableCompensationSalarySummary": null,
+        "compensationTiers": [],
+        "summaryComponents": []
+      }
+    }
+  ]
+}
