@@ -146,6 +146,13 @@ type OfficialWebsiteRow = { host: string };
 
 type OverrideRow = { mode: "pin" | "force_unresolved"; pin_host: string | null };
 
+type BoardSeedRow = {
+  kvk: string;
+  ats_family: string;
+  board_token: string;
+  public_board_feed_url: string | null;
+};
+
 export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIndex {
   const readable = createD1JobsIndex(db);
   return {
@@ -206,6 +213,19 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .first<OutcomeRow>();
       return row ?? null;
     },
+    async recordTerminalOutcome(input) {
+      await db
+        .prepare(
+          `INSERT INTO terminal_careers_outcomes (kvk, outcome, official_website_host, updated_at)
+           VALUES (?1, ?2, ?3, ?4)
+           ON CONFLICT(kvk) DO UPDATE SET
+             outcome = excluded.outcome,
+             official_website_host = excluded.official_website_host,
+             updated_at = excluded.updated_at`,
+        )
+        .bind(input.kvk, input.outcome, input.official_website_host, input.now)
+        .run();
+    },
     async setWebsiteOverride(kvk, override, now) {
       const pinHost = override.mode === "pin" ? override.host : null;
       await db
@@ -232,6 +252,48 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
       }
       return { mode: "force_unresolved" };
     },
+    async setBoardSeed(seed, now) {
+      await db
+        .prepare(
+          `INSERT INTO board_seeds (kvk, ats_family, board_token, public_board_feed_url, updated_at)
+           VALUES (?1, ?2, ?3, ?4, ?5)
+           ON CONFLICT(kvk, ats_family) DO UPDATE SET
+             board_token = excluded.board_token,
+             public_board_feed_url = excluded.public_board_feed_url,
+             updated_at = excluded.updated_at`,
+        )
+        .bind(seed.kvk, seed.ats_family, seed.board_token, seed.public_board_feed_url, now)
+        .run();
+    },
+    async listBoardSeeds() {
+      const result = await db
+        .prepare(
+          `SELECT kvk, ats_family, board_token, public_board_feed_url
+           FROM board_seeds
+           ORDER BY kvk, ats_family`,
+        )
+        .all<BoardSeedRow>();
+      return result.results.map((row) => ({
+        kvk: row.kvk,
+        ats_family: row.ats_family,
+        board_token: row.board_token,
+        public_board_feed_url: row.public_board_feed_url,
+      }));
+    },
+    async listOpeningsByBoard(atsFamily, boardToken) {
+      const result = await db
+        .prepare(
+          `SELECT ${OPENING_COLUMNS}
+           FROM openings
+           WHERE ats_family = ?1 AND board_token = ?2`,
+        )
+        .bind(atsFamily, boardToken)
+        .all<OpeningRow>();
+      return result.results.map(openingFromRow);
+    },
+    async removeOpening(identity) {
+      await db.prepare("DELETE FROM openings WHERE identity = ?1").bind(identity).run();
+    },
     async setRegisterMeta(meta) {
       await db
         .prepare(
@@ -240,6 +302,12 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
            WHERE singleton = 1`,
         )
         .bind(meta.register_size, meta.register_as_of)
+        .run();
+    },
+    async setLastSuccessfulCrawl(now) {
+      await db
+        .prepare("UPDATE index_meta SET last_successful_crawl = ?1 WHERE singleton = 1")
+        .bind(now)
         .run();
     },
     async upsertOpening(opening) {

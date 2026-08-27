@@ -82,6 +82,13 @@ export type WebsiteOverride =
   | { mode: "pin"; host: string }
   | { mode: "force_unresolved" };
 
+export type BoardSeed = {
+  kvk: string;
+  ats_family: string;
+  board_token: string;
+  public_board_feed_url: string | null;
+};
+
 /** Operator/ingest write plane. Jobs tools remain read-only against `JobsIndex`. */
 export interface WritableJobsIndex extends JobsIndex {
   recordWebsiteResolution(input: {
@@ -92,12 +99,23 @@ export interface WritableJobsIndex extends JobsIndex {
   }): Promise<void>;
   getOfficialWebsite(kvk: string): Promise<string | null>;
   getTerminalOutcome(kvk: string): Promise<TerminalCareersOutcome | null>;
+  recordTerminalOutcome(input: {
+    kvk: string;
+    outcome: TerminalCareersOutcomeKind;
+    official_website_host: string | null;
+    now: string;
+  }): Promise<void>;
   setWebsiteOverride(kvk: string, override: WebsiteOverride, now: string): Promise<void>;
   getWebsiteOverride(kvk: string): Promise<WebsiteOverride | null>;
+  setBoardSeed(seed: BoardSeed, now: string): Promise<void>;
+  listBoardSeeds(): Promise<BoardSeed[]>;
+  listOpeningsByBoard(atsFamily: string, boardToken: string): Promise<OpeningRecord[]>;
+  removeOpening(identity: string): Promise<void>;
   setRegisterMeta(meta: {
     register_size: number;
     register_as_of: string | null;
   }): Promise<void>;
+  setLastSuccessfulCrawl(now: string): Promise<void>;
   upsertOpening(opening: OpeningRecord): Promise<void>;
 }
 
