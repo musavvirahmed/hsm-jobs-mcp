@@ -1,3 +1,5 @@
+import { PRODUCT_USER_AGENT } from "./robots";
+
 export type PageGetResult = {
   status: number;
   finalUrl: string;
@@ -320,7 +322,13 @@ async function sparqlOfficialWebsite(kvkId: string, fetchImpl: typeof fetch): Pr
 export function createHttpsPageGetter(fetchImpl: typeof fetch): WebsiteResolutionProviders["getPage"] {
   return async (url) => {
     try {
-      const response = await fetchImpl(url, { redirect: "follow" });
+      const response = await fetchImpl(url, {
+        redirect: "follow",
+        headers: {
+          "User-Agent": PRODUCT_USER_AGENT,
+          Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+        },
+      });
       return {
         status: response.status,
         finalUrl: response.url || url,
