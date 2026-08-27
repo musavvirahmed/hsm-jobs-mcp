@@ -1,0 +1,29 @@
+# Out-of-band Opening refresh (~daily). Never scrapes inside Worker tool handlers.
+name: Out-of-band crawl
+
+on:
+  schedule:
+    # ~daily Opening refresh for known paths (UTC morning).
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Refresh known Opening paths (fixture smoke)
+        # Production D1 writes: set CRAWL_INDEX_PATH + network secrets and drop CRAWL_SMOKE.
+        # Default CI/schedule stays free-tier: exercise the operator entrypoint with fixtures.
+        run: npm run crawl:smoke
+        env:
+          CRAWL_SMOKE: "1"
+      - name: Unit tests for crawl / re-partial seam
+        run: npm test -- test/out-of-band-crawl.test.ts

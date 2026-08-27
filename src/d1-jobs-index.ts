@@ -264,6 +264,10 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         )
         .bind(seed.kvk, seed.ats_family, seed.board_token, seed.public_board_feed_url, now)
         .run();
+      await db
+        .prepare("DELETE FROM board_guess_misses WHERE kvk = ?1 AND ats_family = ?2")
+        .bind(seed.kvk, seed.ats_family)
+        .run();
     },
     async listBoardSeeds() {
       const result = await db
@@ -291,8 +295,52 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .all<OpeningRow>();
       return result.results.map(openingFromRow);
     },
+    async listOpeningsByKvk(kvk) {
+      const result = await db
+        .prepare(
+          `SELECT ${OPENING_COLUMNS}
+           FROM openings
+           WHERE register_kvk = ?1`,
+        )
+        .bind(kvk)
+        .all<OpeningRow>();
+      return result.results.map(openingFromRow);
+    },
     async removeOpening(identity) {
       await db.prepare("DELETE FROM openings WHERE identity = ?1").bind(identity).run();
+    },
+    async recordBoardGuessMiss(input) {
+      await db
+        .prepare(
+          `INSERT INTO board_guess_misses
+             (kvk, ats_family, board_token, official_website_host, updated_at)
+           VALUES (?1, ?2, ?3, ?4, ?5)
+           ON CONFLICT(kvk, ats_family, board_token) DO UPDATE SET
+             official_website_host = excluded.official_website_host,
+             updated_at = excluded.updated_at`,
+        )
+        .bind(
+          input.kvk,
+          input.ats_family,
+          input.board_token,
+          input.official_website_host,
+          input.now,
+        )
+        .run();
+    },
+    async hasBoardGuessMiss(input) {
+      const row = await db
+        .prepare(
+          `SELECT 1 AS present FROM board_guess_misses
+           WHERE kvk = ?1 AND ats_family = ?2 AND board_token = ?3
+             AND official_website_host = ?4`,
+        )
+        .bind(input.kvk, input.ats_family, input.board_token, input.official_website_host)
+        .first<{ present: number }>();
+      return Boolean(row);
+    },
+    async clearBoardGuessMisses(kvk) {
+      await db.prepare("DELETE FROM board_guess_misses WHERE kvk = ?1").bind(kvk).run();
     },
     async setRegisterMeta(meta) {
       await db
@@ -308,6 +356,24 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
       await db
         .prepare("UPDATE index_meta SET last_successful_crawl = ?1 WHERE singleton = 1")
         .bind(now)
+        .run();
+    },
+    async setPass(pass) {
+      await db
+        .prepare("UPDATE index_meta SET pass = ?1 WHERE singleton = 1")
+        .bind(pass)
+        .run();
+    },
+    async getCrawlFailureStreak() {
+      const row = await db
+        .prepare("SELECT crawl_failure_streak AS n FROM index_meta WHERE singleton = 1")
+        .first<{ n: number }>();
+      return Number(row?.n ?? 0);
+    },
+    async setCrawlFailureStreak(streak) {
+      await db
+        .prepare("UPDATE index_meta SET crawl_failure_streak = ?1 WHERE singleton = 1")
+        .bind(Math.max(0, Math.floor(streak)))
         .run();
     },
     async upsertOpening(opening) {
