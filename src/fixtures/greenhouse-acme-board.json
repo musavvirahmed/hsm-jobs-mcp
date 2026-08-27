@@ -1,0 +1,18 @@
+{
+  "jobs": [
+    {
+      "id": 4001001,
+      "title": "Product Designer",
+      "location": { "name": "Amsterdam" },
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4001001",
+      "content": "<p>Design product experiences. Salary &euro;5,000&ndash;&euro;6,000 per month.</p>"
+    },
+    {
+      "id": 4001002,
+      "title": "Frontend Engineer",
+      "location": { "name": "Remote NL" },
+      "absolute_url": "https://boards.greenhouse.io/acme/jobs/4001002",
+      "content": "<p>Build web apps. Dutch not required.</p>"
+    }
+  ]
+}

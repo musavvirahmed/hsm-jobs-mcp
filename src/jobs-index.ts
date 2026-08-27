@@ -110,7 +110,22 @@ export interface WritableJobsIndex extends JobsIndex {
   setBoardSeed(seed: BoardSeed, now: string): Promise<void>;
   listBoardSeeds(): Promise<BoardSeed[]>;
   listOpeningsByBoard(atsFamily: string, boardToken: string): Promise<OpeningRecord[]>;
+  listOpeningsByKvk(kvk: string): Promise<OpeningRecord[]>;
   removeOpening(identity: string): Promise<void>;
+  recordBoardGuessMiss(input: {
+    kvk: string;
+    ats_family: string;
+    board_token: string;
+    official_website_host: string;
+    now: string;
+  }): Promise<void>;
+  hasBoardGuessMiss(input: {
+    kvk: string;
+    ats_family: string;
+    board_token: string;
+    official_website_host: string;
+  }): Promise<boolean>;
+  clearBoardGuessMisses(kvk: string): Promise<void>;
   setRegisterMeta(meta: {
     register_size: number;
     register_as_of: string | null;

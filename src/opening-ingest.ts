@@ -1,7 +1,23 @@
-import { ashbyBoardFeedUrl, parseAshbyBoard, type BoardFeedResponse } from "./ashby-board";
+import {
+  boardFeedUrl,
+  fingerprintBoardTokens,
+  hostSlugForBoardGuess,
+  isV1BoardFamily,
+  parseBoardFeed,
+  V1_BOARD_FAMILIES,
+  type BoardJob,
+  type V1BoardFamily,
+} from "./board-families";
+import { ashbyBoardFeedUrl, type BoardFeedResponse } from "./ashby-board";
+import {
+  careersListingUrls,
+  extractJobLinksFromCareersHtml,
+  openingFromJobPage,
+} from "./html-careers";
 import { extractHonesty } from "./honesty";
 import type { BoardSeed, OpeningRecord, RegisterJoinStrength, WritableJobsIndex } from "./jobs-index";
 import type { RegisterSource, RegisterSponsor } from "./register-source";
+import { PRODUCT_USER_AGENT, robotsAllowsPath } from "./robots";
 import {
   resolveOfficialWebsite,
   type PageGetResult,
@@ -75,6 +91,7 @@ export async function ingestWebsiteResolutions(opts: {
 
   for (const sponsor of register.sponsors) {
     const override = await opts.index.getWebsiteOverride(sponsor.kvk);
+    const previousHost = await opts.index.getOfficialWebsite(sponsor.kvk);
     const resolved = await resolveOfficialWebsite(sponsor, opts.providers, override);
     await opts.index.recordWebsiteResolution({
       kvk: sponsor.kvk,
@@ -82,6 +99,9 @@ export async function ingestWebsiteResolutions(opts: {
       now: stamp,
       replaceClosed: resolved.resolved_via === "override_force_unresolved",
     });
+    if (previousHost !== resolved.official_website_host) {
+      await opts.index.clearBoardGuessMisses(sponsor.kvk);
+    }
     results.push({
       kvk: sponsor.kvk,
       name: sponsor.name,
@@ -103,13 +123,32 @@ export type BoardIngestResult = {
   kvk: string;
   ats_family: string;
   board_token: string;
-  status: "indexed" | "fetch_failed" | "unsupported_family";
+  status: "indexed" | "fetch_failed" | "unsupported_family" | "empty_board";
   openings_written: number;
   openings_removed: number;
 };
 
 export type BoardIngestReport = {
   results: BoardIngestResult[];
+};
+
+export type LadderIngestResult = {
+  kvk: string;
+  status:
+    | "indexed"
+    | "fetch_failed"
+    | "no_matching_public_board"
+    | "skipped_no_website"
+    | "unsupported_family";
+  ats_family: string | null;
+  board_token: string | null;
+  openings_written: number;
+  openings_removed: number;
+  via: "board_seed" | "fingerprint" | "cautious_board_guess" | "html_careers" | null;
+};
+
+export type LadderIngestReport = {
+  results: LadderIngestResult[];
 };
 
 export async function ingestFromBoardSeeds(opts: {
@@ -137,6 +176,51 @@ export async function ingestFromBoardSeeds(opts: {
       stamp,
     });
     results.push(result);
+    if (result.status === "indexed" || result.status === "empty_board") anySuccess = true;
+  }
+
+  await opts.index.setRegisterMeta({
+    register_size: register.sponsors.length,
+    register_as_of: register.asOf,
+  });
+  if (anySuccess) {
+    await opts.index.setLastSuccessfulCrawl(stamp);
+  }
+
+  return { results };
+}
+
+/**
+ * Extraction ladder for sponsors with an accepted official website:
+ * board seed → fingerprint → cautious board guess → HTML careers fallback.
+ */
+export async function ingestExtractionLadder(opts: {
+  register: RegisterSource;
+  index: WritableJobsIndex;
+  fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
+  getPage: WebsiteResolutionProviders["getPage"];
+  now?: () => string;
+  invalidateBoardGuessesFor?: string[];
+}): Promise<LadderIngestReport> {
+  const now = opts.now ?? (() => new Date().toISOString());
+  const stamp = now();
+  const register = await opts.register.load();
+  const results: LadderIngestResult[] = [];
+  let anySuccess = false;
+
+  for (const kvk of opts.invalidateBoardGuessesFor ?? []) {
+    await opts.index.clearBoardGuessMisses(kvk);
+  }
+
+  for (const sponsor of register.sponsors) {
+    const result = await ingestLadderForSponsor({
+      sponsor,
+      index: opts.index,
+      fetchBoardFeed: opts.fetchBoardFeed,
+      getPage: opts.getPage,
+      stamp,
+    });
+    results.push(result);
     if (result.status === "indexed") anySuccess = true;
   }
 
@@ -151,6 +235,173 @@ export async function ingestFromBoardSeeds(opts: {
   return { results };
 }
 
+async function ingestLadderForSponsor(opts: {
+  sponsor: RegisterSponsor;
+  index: WritableJobsIndex;
+  fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
+  getPage: WebsiteResolutionProviders["getPage"];
+  stamp: string;
+}): Promise<LadderIngestResult> {
+  const { sponsor, index, stamp } = opts;
+  const officialHost = await index.getOfficialWebsite(sponsor.kvk);
+  if (!officialHost) {
+    return {
+      kvk: sponsor.kvk,
+      status: "skipped_no_website",
+      ats_family: null,
+      board_token: null,
+      openings_written: 0,
+      openings_removed: 0,
+      via: null,
+    };
+  }
+
+  const seeds = (await index.listBoardSeeds()).filter((seed) => seed.kvk === sponsor.kvk);
+  for (const seed of seeds) {
+    const seeded = await ingestOneBoardSeed({
+      seed,
+      sponsor,
+      index,
+      fetchBoardFeed: opts.fetchBoardFeed,
+      getPage: opts.getPage,
+      stamp,
+    });
+    if (seeded.status === "indexed" || seeded.status === "empty_board") {
+      return {
+        kvk: sponsor.kvk,
+        status: seeded.status === "indexed" ? "indexed" : "no_matching_public_board",
+        ats_family: seeded.ats_family,
+        board_token: seeded.board_token,
+        openings_written: seeded.openings_written,
+        openings_removed: seeded.openings_removed,
+        via: "board_seed",
+      };
+    }
+    if (seeded.status === "unsupported_family") {
+      return {
+        kvk: sponsor.kvk,
+        status: "unsupported_family",
+        ats_family: seeded.ats_family,
+        board_token: seeded.board_token,
+        openings_written: 0,
+        openings_removed: 0,
+        via: "board_seed",
+      };
+    }
+  }
+
+  const fingerprinted = await fingerprintFromCareersPages({
+    officialHost,
+    getPage: opts.getPage,
+  });
+  for (const hit of fingerprinted) {
+    const board = await tryKnownBoard({
+      kvk: sponsor.kvk,
+      sponsor,
+      officialHost,
+      family: hit.ats_family,
+      boardToken: hit.board_token,
+      index,
+      fetchBoardFeed: opts.fetchBoardFeed,
+      getPage: opts.getPage,
+      stamp,
+      persistSeed: true,
+    });
+    if (board.status === "indexed" || board.status === "empty_board") {
+      return {
+        kvk: sponsor.kvk,
+        status: board.status === "indexed" ? "indexed" : "no_matching_public_board",
+        ats_family: hit.ats_family,
+        board_token: hit.board_token,
+        openings_written: board.openings_written,
+        openings_removed: board.openings_removed,
+        via: "fingerprint",
+      };
+    }
+  }
+
+  const slug = hostSlugForBoardGuess(officialHost);
+  if (slug) {
+    for (const family of V1_BOARD_FAMILIES) {
+      const missed = await index.hasBoardGuessMiss({
+        kvk: sponsor.kvk,
+        ats_family: family,
+        board_token: slug,
+        official_website_host: officialHost,
+      });
+      if (missed) continue;
+
+      const board = await tryKnownBoard({
+        kvk: sponsor.kvk,
+        sponsor,
+        officialHost,
+        family,
+        boardToken: slug,
+        index,
+        fetchBoardFeed: opts.fetchBoardFeed,
+        getPage: opts.getPage,
+        stamp,
+        persistSeed: true,
+      });
+      if (board.status === "indexed" || board.status === "empty_board") {
+        return {
+          kvk: sponsor.kvk,
+          status: board.status === "indexed" ? "indexed" : "no_matching_public_board",
+          ats_family: family,
+          board_token: slug,
+          openings_written: board.openings_written,
+          openings_removed: board.openings_removed,
+          via: "cautious_board_guess",
+        };
+      }
+      if (board.status === "fetch_failed") {
+        await index.recordBoardGuessMiss({
+          kvk: sponsor.kvk,
+          ats_family: family,
+          board_token: slug,
+          official_website_host: officialHost,
+          now: stamp,
+        });
+      }
+    }
+  }
+
+  const html = await ingestHtmlCareersFallback({
+    sponsor,
+    officialHost,
+    index,
+    getPage: opts.getPage,
+    stamp,
+  });
+  if (html.openings_written > 0) {
+    return {
+      kvk: sponsor.kvk,
+      status: "indexed",
+      ats_family: null,
+      board_token: null,
+      openings_written: html.openings_written,
+      openings_removed: html.openings_removed,
+      via: "html_careers",
+    };
+  }
+
+  await index.recordTerminalOutcome({
+    kvk: sponsor.kvk,
+    outcome: "no_matching_public_board",
+    official_website_host: officialHost,
+    now: stamp,
+  });
+  return {
+    kvk: sponsor.kvk,
+    status: "no_matching_public_board",
+    ats_family: null,
+    board_token: null,
+    openings_written: 0,
+    openings_removed: html.openings_removed,
+    via: null,
+  };
+}
+
 async function ingestOneBoardSeed(opts: {
   seed: BoardSeed;
   sponsor: RegisterSponsor | null;
@@ -160,7 +411,7 @@ async function ingestOneBoardSeed(opts: {
   stamp: string;
 }): Promise<BoardIngestResult> {
   const { seed, sponsor, index, stamp } = opts;
-  if (seed.ats_family !== "ashby") {
+  if (!isV1BoardFamily(seed.ats_family)) {
     return {
       kvk: seed.kvk,
       ats_family: seed.ats_family,
@@ -171,7 +422,8 @@ async function ingestOneBoardSeed(opts: {
     };
   }
 
-  const feedUrl = seed.public_board_feed_url ?? ashbyBoardFeedUrl(seed.board_token);
+  const family = seed.ats_family;
+  const feedUrl = seed.public_board_feed_url ?? boardFeedUrl(family, seed.board_token);
   const fetched = await opts.fetchBoardFeed(feedUrl);
   if (!fetched.ok) {
     return {
@@ -184,7 +436,7 @@ async function ingestOneBoardSeed(opts: {
     };
   }
 
-  const parsed = parseAshbyBoard(fetched.body);
+  const parsed = parseBoardFeed(family, fetched.body);
   if (!parsed) {
     return {
       kvk: seed.kvk,
@@ -197,47 +449,17 @@ async function ingestOneBoardSeed(opts: {
   }
 
   const officialHost = await index.getOfficialWebsite(seed.kvk);
-  const join = registerJoinAtIndexTime(sponsor);
-  const seen = new Set<string>();
-  let written = 0;
+  const written = await writeBoardJobs({
+    jobs: parsed.jobs,
+    family,
+    boardToken: seed.board_token,
+    sponsor,
+    officialHost,
+    index,
+    getPage: opts.getPage,
+  });
 
-  for (const job of parsed.jobs) {
-    const identity = `${seed.ats_family}:${seed.board_token}:${job.id}`;
-    seen.add(identity);
-    const careersUrl = officialHost
-      ? await careersUrlIfLive(officialHost, job.title, opts.getPage)
-      : null;
-    const primaryUrl = careersUrl ?? job.jobUrl;
-    await ingestOpening(index, {
-      identity,
-      primary_url: primaryUrl,
-      careers_url: careersUrl,
-      ats_url: job.jobUrl,
-      title: job.title,
-      location: job.location,
-      jd_extract: job.descriptionPlain,
-      source_class: "ats_board",
-      register_name: join.name,
-      register_kvk: join.kvk,
-      register_join_strength: join.strength,
-      ats_family: seed.ats_family,
-      board_token: seed.board_token,
-      posting_id: job.id,
-      ats_compensation: job.compensationSummary,
-    });
-    written += 1;
-  }
-
-  const existing = await index.listOpeningsByBoard(seed.ats_family, seed.board_token);
-  let removed = 0;
-  for (const opening of existing) {
-    if (!seen.has(opening.identity)) {
-      await index.removeOpening(opening.identity);
-      removed += 1;
-    }
-  }
-
-  if (written > 0) {
+  if (written.written > 0) {
     await index.recordTerminalOutcome({
       kvk: seed.kvk,
       outcome: "openings_indexed",
@@ -250,10 +472,195 @@ async function ingestOneBoardSeed(opts: {
     kvk: seed.kvk,
     ats_family: seed.ats_family,
     board_token: seed.board_token,
-    status: "indexed",
-    openings_written: written,
-    openings_removed: removed,
+    status: written.written > 0 ? "indexed" : "empty_board",
+    openings_written: written.written,
+    openings_removed: written.removed,
   };
+}
+
+async function tryKnownBoard(opts: {
+  kvk: string;
+  sponsor: RegisterSponsor;
+  officialHost: string;
+  family: V1BoardFamily;
+  boardToken: string;
+  index: WritableJobsIndex;
+  fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
+  getPage: WebsiteResolutionProviders["getPage"];
+  stamp: string;
+  persistSeed: boolean;
+}): Promise<BoardIngestResult> {
+  const seed: BoardSeed = {
+    kvk: opts.kvk,
+    ats_family: opts.family,
+    board_token: opts.boardToken,
+    public_board_feed_url: boardFeedUrl(opts.family, opts.boardToken),
+  };
+  const result = await ingestOneBoardSeed({
+    seed,
+    sponsor: opts.sponsor,
+    index: opts.index,
+    fetchBoardFeed: opts.fetchBoardFeed,
+    getPage: opts.getPage,
+    stamp: opts.stamp,
+  });
+  if (opts.persistSeed && (result.status === "indexed" || result.status === "empty_board")) {
+    await opts.index.setBoardSeed(seed, opts.stamp);
+    await opts.index.clearBoardGuessMisses(opts.kvk);
+  }
+  return result;
+}
+
+async function writeBoardJobs(opts: {
+  jobs: BoardJob[];
+  family: V1BoardFamily;
+  boardToken: string;
+  sponsor: RegisterSponsor | null;
+  officialHost: string | null;
+  index: WritableJobsIndex;
+  getPage: WebsiteResolutionProviders["getPage"];
+}): Promise<{ written: number; removed: number }> {
+  const join = registerJoinAtIndexTime(opts.sponsor);
+  const seen = new Set<string>();
+  let written = 0;
+
+  for (const job of opts.jobs) {
+    const identity = `${opts.family}:${opts.boardToken}:${job.id}`;
+    seen.add(identity);
+    const careersUrl = opts.officialHost
+      ? await careersUrlIfLive(opts.officialHost, job.title, opts.getPage)
+      : null;
+    const primaryUrl = careersUrl ?? job.jobUrl;
+    await ingestOpening(opts.index, {
+      identity,
+      primary_url: primaryUrl,
+      careers_url: careersUrl,
+      ats_url: job.jobUrl,
+      title: job.title,
+      location: job.location,
+      jd_extract: job.descriptionPlain,
+      source_class: "ats_board",
+      register_name: join.name,
+      register_kvk: join.kvk,
+      register_join_strength: join.strength,
+      ats_family: opts.family,
+      board_token: opts.boardToken,
+      posting_id: job.id,
+      ats_compensation: job.compensationSummary,
+    });
+    written += 1;
+  }
+
+  const existing = await opts.index.listOpeningsByBoard(opts.family, opts.boardToken);
+  let removed = 0;
+  for (const opening of existing) {
+    if (!seen.has(opening.identity)) {
+      await opts.index.removeOpening(opening.identity);
+      removed += 1;
+    }
+  }
+  return { written, removed };
+}
+
+async function fingerprintFromCareersPages(opts: {
+  officialHost: string;
+  getPage: WebsiteResolutionProviders["getPage"];
+}): Promise<Array<{ ats_family: V1BoardFamily; board_token: string }>> {
+  const found = new Map<string, { ats_family: V1BoardFamily; board_token: string }>();
+  const robots = await loadRobots(opts.officialHost, opts.getPage);
+  for (const url of [`https://${opts.officialHost}/`, ...careersListingUrls(opts.officialHost)]) {
+    const path = new URL(url).pathname;
+    const decision = robotsAllowsPath(robots, path, { userAgent: PRODUCT_USER_AGENT });
+    if (!decision.allowed) continue;
+    const page = await opts.getPage(url);
+    if (!page || !page.tlsValid || page.status < 200 || page.status >= 400) continue;
+    for (const hit of fingerprintBoardTokens(page.bodyText)) {
+      found.set(`${hit.ats_family}:${hit.board_token}`, hit);
+    }
+  }
+  return [...found.values()];
+}
+
+async function ingestHtmlCareersFallback(opts: {
+  sponsor: RegisterSponsor;
+  officialHost: string;
+  index: WritableJobsIndex;
+  getPage: WebsiteResolutionProviders["getPage"];
+  stamp: string;
+}): Promise<{ openings_written: number; openings_removed: number }> {
+  const robots = await loadRobots(opts.officialHost, opts.getPage);
+  const join = registerJoinAtIndexTime(opts.sponsor);
+  const seen = new Set<string>();
+  let written = 0;
+
+  for (const listingUrl of careersListingUrls(opts.officialHost)) {
+    const listingPath = new URL(listingUrl).pathname;
+    if (!robotsAllowsPath(robots, listingPath, { userAgent: PRODUCT_USER_AGENT }).allowed) {
+      continue;
+    }
+    const listing = await opts.getPage(listingUrl);
+    if (!listing || !listing.tlsValid || listing.status < 200 || listing.status >= 400) continue;
+
+    const links = extractJobLinksFromCareersHtml(listing.finalUrl, listing.bodyText, opts.officialHost);
+    for (const jobUrl of links) {
+      const jobPath = new URL(jobUrl).pathname;
+      if (!robotsAllowsPath(robots, jobPath, { userAgent: PRODUCT_USER_AGENT }).allowed) {
+        continue;
+      }
+      const page = await opts.getPage(jobUrl);
+      if (!page || !page.tlsValid || page.status < 200 || page.status >= 400) continue;
+      const draft = openingFromJobPage(jobUrl, page.bodyText);
+      if (!draft) continue;
+      const identity = `careers_url:${draft.primary_url}`;
+      seen.add(identity);
+      await ingestOpening(opts.index, {
+        identity,
+        primary_url: draft.primary_url,
+        careers_url: draft.primary_url,
+        ats_url: null,
+        title: draft.title,
+        location: draft.location,
+        jd_extract: draft.jd_extract,
+        source_class: "careers_site",
+        register_name: join.name,
+        register_kvk: join.kvk,
+        register_join_strength: join.strength,
+        ats_family: null,
+        board_token: null,
+        posting_id: null,
+      });
+      written += 1;
+    }
+  }
+
+  let removed = 0;
+  if (written > 0) {
+    const existing = await opts.index.listOpeningsByKvk(opts.sponsor.kvk);
+    for (const opening of existing) {
+      if (opening.source_class !== "careers_site") continue;
+      if (!seen.has(opening.identity)) {
+        await opts.index.removeOpening(opening.identity);
+        removed += 1;
+      }
+    }
+    await opts.index.recordTerminalOutcome({
+      kvk: opts.sponsor.kvk,
+      outcome: "openings_indexed",
+      official_website_host: opts.officialHost,
+      now: opts.stamp,
+    });
+  }
+
+  return { openings_written: written, openings_removed: removed };
+}
+
+async function loadRobots(
+  officialHost: string,
+  getPage: WebsiteResolutionProviders["getPage"],
+): Promise<string | null> {
+  const page = await getPage(`https://${officialHost}/robots.txt`);
+  if (!page || !page.tlsValid || page.status < 200 || page.status >= 400) return null;
+  return page.bodyText;
 }
 
 function registerJoinAtIndexTime(
