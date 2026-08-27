@@ -358,6 +358,24 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .bind(now)
         .run();
     },
+    async setPass(pass) {
+      await db
+        .prepare("UPDATE index_meta SET pass = ?1 WHERE singleton = 1")
+        .bind(pass)
+        .run();
+    },
+    async getCrawlFailureStreak() {
+      const row = await db
+        .prepare("SELECT crawl_failure_streak AS n FROM index_meta WHERE singleton = 1")
+        .first<{ n: number }>();
+      return Number(row?.n ?? 0);
+    },
+    async setCrawlFailureStreak(streak) {
+      await db
+        .prepare("UPDATE index_meta SET crawl_failure_streak = ?1 WHERE singleton = 1")
+        .bind(Math.max(0, Math.floor(streak)))
+        .run();
+    },
     async upsertOpening(opening) {
       await db
         .prepare(

@@ -1,0 +1,187 @@
+import {
+  ingestExtractionLadder,
+  ingestFromBoardSeeds,
+  ingestWebsiteResolutions,
+  type BoardFeedResponse,
+  type BoardIngestReport,
+  type LadderIngestReport,
+  type WebsiteIngestReport,
+  type WebsiteResolutionProviders,
+} from "./opening-ingest";
+import type { WritableJobsIndex } from "./jobs-index";
+import type { RegisterSource, RegisterSponsor } from "./register-source";
+
+export const DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD = 2;
+
+export type CrawlAlert = {
+  kind: "repeated_crawl_failure";
+  consecutive_failures: number;
+  message: string;
+};
+
+export type CrawlAlertHook = (alert: CrawlAlert) => void | Promise<void>;
+
+export type OutOfBandCrawlReport = {
+  re_partialed: boolean;
+  missing_terminal_outcomes_before: number;
+  missing_terminal_outcomes_after: number;
+  openings_refresh: BoardIngestReport;
+  website_ingest: WebsiteIngestReport | null;
+  ladder_ingest: LadderIngestReport | null;
+  crawl_failure_streak: number;
+  alerts: CrawlAlert[];
+};
+
+/**
+ * Out-of-band Opening refresh + register-refresh re-partial.
+ * MCP tools stay read-only; this plane writes the durable jobs index.
+ *
+ * Restoring `full_careers_pass` after every KvK has a terminal careers outcome
+ * belongs to the full careers pass runner (separate ticket), not this plane.
+ */
+export async function runOutOfBandCrawl(opts: {
+  register: RegisterSource;
+  index: WritableJobsIndex;
+  fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
+  providers: WebsiteResolutionProviders;
+  now?: () => string;
+  alert?: CrawlAlertHook;
+  failureAlertThreshold?: number;
+}): Promise<OutOfBandCrawlReport> {
+  const now = opts.now ?? (() => new Date().toISOString());
+  const threshold = opts.failureAlertThreshold ?? DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD;
+  const getPage = opts.providers.getPage;
+  const register = await opts.register.load();
+
+  await opts.index.setRegisterMeta({
+    register_size: register.sponsors.length,
+    register_as_of: register.asOf,
+  });
+
+  const missingBefore = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
+
+  let rePartialed = false;
+  if (missingBefore.length > 0) {
+    await opts.index.setPass("partial");
+    rePartialed = true;
+  }
+
+  const openingsRefresh = await ingestFromBoardSeeds({
+    register: opts.register,
+    index: opts.index,
+    fetchBoardFeed: opts.fetchBoardFeed,
+    getPage,
+    now,
+  });
+
+  let websiteIngest: WebsiteIngestReport | null = null;
+  let ladderIngest: LadderIngestReport | null = null;
+
+  const stillMissing = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
+  if (stillMissing.length > 0) {
+    const missingRegister = createRegisterSubset(opts.register, new Set(stillMissing));
+    websiteIngest = await ingestWebsiteResolutions({
+      register: missingRegister,
+      index: opts.index,
+      providers: opts.providers,
+      now,
+    });
+
+    const afterWebsite = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
+    const withWebsite = [];
+    for (const kvk of afterWebsite) {
+      if (await opts.index.getOfficialWebsite(kvk)) {
+        withWebsite.push(kvk);
+      }
+    }
+    if (withWebsite.length > 0) {
+      ladderIngest = await ingestExtractionLadder({
+        register: createRegisterSubset(opts.register, new Set(withWebsite)),
+        index: opts.index,
+        fetchBoardFeed: opts.fetchBoardFeed,
+        getPage,
+        now,
+      });
+    }
+  }
+
+  await opts.index.setRegisterMeta({
+    register_size: register.sponsors.length,
+    register_as_of: register.asOf,
+  });
+
+  const streak = await updateCrawlFailureStreak(opts.index, openingsRefresh);
+  const alerts: CrawlAlert[] = [];
+  if (streak >= threshold && opts.alert) {
+    const alert: CrawlAlert = {
+      kind: "repeated_crawl_failure",
+      consecutive_failures: streak,
+      message: `Repeated out-of-band crawl failure: ${streak} consecutive runs with no successful known-path refresh`,
+    };
+    await opts.alert(alert);
+    alerts.push(alert);
+  }
+
+  const missingAfter = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
+  return {
+    re_partialed: rePartialed,
+    missing_terminal_outcomes_before: missingBefore.length,
+    missing_terminal_outcomes_after: missingAfter.length,
+    openings_refresh: openingsRefresh,
+    website_ingest: websiteIngest,
+    ladder_ingest: ladderIngest,
+    crawl_failure_streak: streak,
+    alerts,
+  };
+}
+
+async function listMissingTerminalOutcomeKvks(
+  index: WritableJobsIndex,
+  sponsors: RegisterSponsor[],
+): Promise<string[]> {
+  const missing: string[] = [];
+  for (const sponsor of sponsors) {
+    if (!(await index.getTerminalOutcome(sponsor.kvk))) {
+      missing.push(sponsor.kvk);
+    }
+  }
+  return missing;
+}
+
+function createRegisterSubset(source: RegisterSource, kvks: Set<string>): RegisterSource {
+  return {
+    async load() {
+      const full = await source.load();
+      return {
+        asOf: full.asOf,
+        sponsors: full.sponsors.filter((sponsor) => kvks.has(sponsor.kvk)),
+      };
+    },
+  };
+}
+
+async function updateCrawlFailureStreak(
+  index: WritableJobsIndex,
+  openingsRefresh: BoardIngestReport,
+): Promise<number> {
+  if (openingsRefresh.results.length === 0) {
+    return index.getCrawlFailureStreak();
+  }
+
+  const anySuccess = openingsRefresh.results.some(
+    (row) => row.status === "indexed" || row.status === "empty_board",
+  );
+  if (anySuccess) {
+    await index.setCrawlFailureStreak(0);
+    return 0;
+  }
+
+  const anyFailure = openingsRefresh.results.some((row) => row.status === "fetch_failed");
+  if (!anyFailure) {
+    return index.getCrawlFailureStreak();
+  }
+
+  const next = (await index.getCrawlFailureStreak()) + 1;
+  await index.setCrawlFailureStreak(next);
+  return next;
+}
