@@ -44,6 +44,7 @@ export async function runOutOfBandCrawl(opts: {
   index: WritableJobsIndex;
   fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
   providers: WebsiteResolutionProviders;
+  getBrowserPage?: WebsiteResolutionProviders["getPage"];
   now?: () => string;
   alert?: CrawlAlertHook;
   failureAlertThreshold?: number;
@@ -100,6 +101,7 @@ export async function runOutOfBandCrawl(opts: {
         index: opts.index,
         fetchBoardFeed: opts.fetchBoardFeed,
         getPage,
+        getBrowserPage: opts.getBrowserPage,
         now,
       });
     }

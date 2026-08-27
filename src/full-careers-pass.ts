@@ -36,6 +36,7 @@ export async function runFullCareersPass(opts: {
   index: WritableJobsIndex;
   fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
   providers: WebsiteResolutionProviders;
+  getBrowserPage?: WebsiteResolutionProviders["getPage"];
   now?: () => string;
   /** Cap how many missing KvKs this invocation attempts (resumable batches). */
   maxAttempts?: number;
@@ -89,6 +90,7 @@ export async function runFullCareersPass(opts: {
         index: opts.index,
         fetchBoardFeed: opts.fetchBoardFeed,
         getPage: opts.providers.getPage,
+        getBrowserPage: opts.getBrowserPage,
         now,
       });
     }

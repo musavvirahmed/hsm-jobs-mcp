@@ -14,6 +14,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAshbyBoardFeedFetcher } from "../src/ashby-board";
+import { createPlaywrightPageGetter } from "../src/browser-harvest";
 import { runFullCareersPass } from "../src/full-careers-pass";
 import {
   DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
@@ -60,6 +61,7 @@ async function main(): Promise<void> {
 
   const getPage = smoke ? smokeGetPage() : createHttpsPageGetter(fetch);
   const fetchBoardFeed = smoke ? smokeFetchBoardFeed() : createAshbyBoardFeedFetcher(fetch);
+  const browser = smoke ? null : await createPlaywrightPageGetter().catch(() => null);
   const register = createFixtureRegister(
     [RENTMAN],
     process.env.CRAWL_REGISTER_AS_OF?.trim() || "2026-08-03",
@@ -75,6 +77,7 @@ async function main(): Promise<void> {
         index,
         fetchBoardFeed,
         providers,
+        getBrowserPage: browser?.getPage,
         maxAttempts,
       })
     : await runOutOfBandCrawl({
@@ -82,6 +85,7 @@ async function main(): Promise<void> {
         index,
         fetchBoardFeed,
         providers,
+        getBrowserPage: browser?.getPage,
         alert: async (alert) => {
           console.error(`[crawl-alert] ${alert.kind}: ${alert.message}`);
         },
@@ -113,6 +117,10 @@ async function main(): Promise<void> {
 
   if ("alerts" in report && report.alerts.length > 0) {
     process.exitCode = 2;
+  }
+
+  if (browser) {
+    await browser.close();
   }
 }
 
