@@ -9,3 +9,4 @@ Created lazily by `/domain-modeling` when a decision actually resolves.
 - [0005 — v1 MCP contract (tools, transport, encoding)](./0005-v1-mcp-contract.md)
 - [0006 — Flat honesty_* keys + `"unknown"` sentinel](./0006-honesty-payload-shape.md)
 - [0007 — Post-v1 README and MCP discovery site](./0007-post-v1-packaging-discovery.md)
+- [0008 — Deterministic index-time honesty extraction](./0008-jd-honesty-extraction.md)
