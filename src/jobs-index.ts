@@ -131,6 +131,9 @@ export interface WritableJobsIndex extends JobsIndex {
     register_as_of: string | null;
   }): Promise<void>;
   setLastSuccessfulCrawl(now: string): Promise<void>;
+  setPass(pass: IndexPass): Promise<void>;
+  getCrawlFailureStreak(): Promise<number>;
+  setCrawlFailureStreak(streak: number): Promise<void>;
   upsertOpening(opening: OpeningRecord): Promise<void>;
 }
 
