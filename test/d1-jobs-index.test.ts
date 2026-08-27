@@ -30,6 +30,9 @@ function emptyJobsIndexDb(): JobsIndexDatabase {
         async all<T = Record<string, unknown>>() {
           return { results: [] as T[] };
         },
+        async run() {
+          return { success: true };
+        },
       };
       return statement;
     },

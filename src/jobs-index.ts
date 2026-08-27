@@ -26,10 +26,78 @@ export type SearchOpeningsArgs = {
   limit: number;
 };
 
+export type RegisterJoinStrength = "exact_kvk" | "strong_name" | "weak" | "unmatched";
+export type SourceClass = "careers_site" | "ats_board" | "aggregator" | "unknown";
+export type SponsorshipWillingness = "stated_yes" | "stated_no" | "unknown";
+export type HonestyDutchRequired = boolean | "unknown";
+
+export type RegisterJoin = {
+  name: string | null;
+  kvk: string | null;
+  strength: RegisterJoinStrength;
+};
+
+export type OpeningRecord = {
+  identity: string;
+  primary_url: string;
+  careers_url: string | null;
+  ats_url: string | null;
+  title: string;
+  location: string | null;
+  jd_extract: string | null;
+  source_class: SourceClass;
+  honesty_salary: string;
+  honesty_dutch_required: HonestyDutchRequired;
+  honesty_sponsorship_willingness: SponsorshipWillingness;
+  register_name: string | null;
+  register_kvk: string | null;
+  register_join_strength: RegisterJoinStrength;
+  ats_family: string | null;
+  board_token: string | null;
+  posting_id: string | null;
+};
+
 export interface JobsIndex {
   snapshot(): Promise<IndexSnapshot>;
-  searchOpenings(args: SearchOpeningsArgs): Promise<unknown[]>;
-  getOpening(primaryUrl: string): Promise<unknown | null>;
+  searchOpenings(args: SearchOpeningsArgs): Promise<OpeningRecord[]>;
+  getOpening(primaryUrl: string): Promise<OpeningRecord | null>;
+}
+
+export type TerminalCareersOutcomeKind =
+  | "openings_indexed"
+  | "unresolved_website"
+  | "no_careers_site"
+  | "no_matching_public_board"
+  | "blocked"
+  | "unsupported_extractor";
+
+export type TerminalCareersOutcome = {
+  kvk: string;
+  outcome: TerminalCareersOutcomeKind;
+  official_website_host: string | null;
+  updated_at: string;
+};
+
+export type WebsiteOverride =
+  | { mode: "pin"; host: string }
+  | { mode: "force_unresolved" };
+
+/** Operator/ingest write plane. Jobs tools remain read-only against `JobsIndex`. */
+export interface WritableJobsIndex extends JobsIndex {
+  recordWebsiteResolution(input: {
+    kvk: string;
+    official_website_host: string | null;
+    now: string;
+    replaceClosed?: boolean;
+  }): Promise<void>;
+  getOfficialWebsite(kvk: string): Promise<string | null>;
+  getTerminalOutcome(kvk: string): Promise<TerminalCareersOutcome | null>;
+  setWebsiteOverride(kvk: string, override: WebsiteOverride, now: string): Promise<void>;
+  getWebsiteOverride(kvk: string): Promise<WebsiteOverride | null>;
+  setRegisterMeta(meta: {
+    register_size: number;
+    register_as_of: string | null;
+  }): Promise<void>;
 }
 
 export const EMPTY_COVERAGE_NOTE =
@@ -57,10 +125,62 @@ export function emptyPartialSnapshot(): IndexSnapshot {
   };
 }
 
-export function createMemoryJobsIndex(): JobsIndex {
+export type MemoryJobsIndexSeed = {
+  openings?: OpeningRecord[];
+  snapshot?: IndexSnapshot;
+};
+
+function matchesSearch(opening: OpeningRecord, args: SearchOpeningsArgs): boolean {
+  if (args.kvk !== undefined && opening.register_kvk !== args.kvk) {
+    return false;
+  }
+  if (args.location !== undefined) {
+    if (!opening.location || !containsInsensitive(opening.location, args.location)) {
+      return false;
+    }
+  }
+  if (args.query !== undefined && !containsInsensitive(opening.title, args.query)) {
+    return false;
+  }
+  return true;
+}
+
+function rankSearchHits(openings: OpeningRecord[], query: string | undefined): OpeningRecord[] {
+  if (query === undefined) {
+    return [...openings].sort((a, b) => a.title.localeCompare(b.title));
+  }
+  return [...openings].sort((a, b) => {
+    const aTitle = containsInsensitive(a.title, query) ? 0 : 1;
+    const bTitle = containsInsensitive(b.title, query) ? 0 : 1;
+    if (aTitle !== bTitle) {
+      return aTitle - bTitle;
+    }
+    return a.title.localeCompare(b.title);
+  });
+}
+
+export function registerJoinFromOpening(opening: OpeningRecord): RegisterJoin {
   return {
-    snapshot: async () => emptyPartialSnapshot(),
-    searchOpenings: async () => [],
-    getOpening: async () => null,
+    name: opening.register_name,
+    kvk: opening.register_kvk,
+    strength: opening.register_join_strength,
+  };
+}
+
+function containsInsensitive(haystack: string, needle: string): boolean {
+  return haystack.toLowerCase().includes(needle.toLowerCase());
+}
+
+export function createMemoryJobsIndex(seed: MemoryJobsIndexSeed = {}): JobsIndex {
+  const openings = seed.openings ?? [];
+  const snapshot = seed.snapshot ?? emptyPartialSnapshot();
+  return {
+    snapshot: async () => snapshot,
+    searchOpenings: async (args) => {
+      const matched = openings.filter((opening) => matchesSearch(opening, args));
+      return rankSearchHits(matched, args.query).slice(0, args.limit);
+    },
+    getOpening: async (primaryUrl) =>
+      openings.find((opening) => opening.primary_url === primaryUrl) ?? null,
   };
 }
