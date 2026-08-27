@@ -5,11 +5,11 @@ export type HsmMcpAdapter = {
   }>;
 };
 
-/** Injectable no-network stub. Production hybrid join lands in a later ticket. */
-export function createStubHsmMcp(): HsmMcpAdapter {
+/** Injectable no-network stub. Pass `stale` or `error` to exercise hybrid-join degrade. */
+export function createStubHsmMcp(status: "ok" | "stale" | "error" = "ok"): HsmMcpAdapter {
   return {
     async revalidateKvks(kvks) {
-      return { status: "ok", present: [...kvks] };
+      return { status, present: status === "ok" ? [...kvks] : [] };
     },
   };
 }
