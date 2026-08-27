@@ -1,0 +1,15 @@
+{
+  "name": "hsm-jobs-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "JOBS_INDEX",
+      "database_name": "hsm-jobs-index",
+      // Placeholder until Cloudflare operator bootstrap wizard writes the live id.
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

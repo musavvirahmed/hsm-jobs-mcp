@@ -12,3 +12,5 @@ dist/
 .cursor/plans/
 *.code-workspace
 vendor/
+.wrangler/
+.dev.vars
