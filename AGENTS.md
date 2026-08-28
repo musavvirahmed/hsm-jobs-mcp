@@ -2,23 +2,20 @@
 
 Canonical for every IDE and model. Claude Code: also see `CLAUDE.md` (it only points here).
 
-This repo specifies **hsm-jobs-mcp**. Until the Wayfinder map is clear and `/to-spec` has run, **plan, don’t do**: no MCP implementation, no public portal, no 13k crawl.
+This repo is **hsm-jobs-mcp** (v1 shipped). Connect, deploy, operator crawl, and live checks: see [README.md](README.md).
 
 ## Hard rules
 
-1. **Plan, don’t do.** Wayfinder tickets are questions. Do not write production code inside the map. Do not treat a `wayfinder:task` that looks like a slice of the build as a licence to implement.
-2. **One ticket per session**, except research tickets which may run in parallel at charting time.
-3. **Claim first.** Assign the GitHub issue to yourself before any work. Concurrent sessions skip assigned tickets.
-4. **Refer to tickets by name**, never by a bare `#42`.
-5. **Use `CONTEXT.md` vocabulary.** Don’t invent synonyms for glossary terms.
-6. **Do not scrape LinkedIn.** Do not rebuild [hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp). Do not clone the IND register as the product.
+1. **One ticket per session**, except research tickets which may run in parallel at charting time.
+2. **Claim first.** Assign the GitHub issue to yourself before any work. Concurrent sessions skip assigned tickets.
+3. **Refer to tickets by name**, never by a bare `#42`.
+4. **Use `CONTEXT.md` vocabulary.** Don’t invent synonyms for glossary terms.
+5. **Do not scrape LinkedIn.** Do not rebuild [hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp). Do not clone the IND register as the product.
 
 ## How to continue
 
-1. Read this file, `CONTEXT.md`, and `docs/agents/issue-tracker.md`.
-2. Open the issue labelled `wayfinder:map`.
-3. Take one unblocked, unassigned child. Assign it. Resolve it (resolution comment, close, one line on the map’s Decisions so far). Stop.
-4. When no tickets remain: `/to-spec` on the map, then `/to-tickets`, then `/implement`.
+1. Read this file, `CONTEXT.md`, and [README.md](README.md).
+2. New slices: `/to-spec` → `/to-tickets` → `/implement` (see `docs/agents/issue-tracker.md`).
 
 ## Agent skills
 
