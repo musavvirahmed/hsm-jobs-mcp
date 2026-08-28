@@ -10,7 +10,8 @@
     "crawl": "tsx scripts/run-crawl.ts",
     "crawl:smoke": "CRAWL_SMOKE=1 tsx scripts/run-crawl.ts",
     "crawl:full-pass": "CRAWL_FULL_PASS=1 tsx scripts/run-crawl.ts",
-    "crawl:full-pass:smoke": "CRAWL_SMOKE=1 CRAWL_FULL_PASS=1 tsx scripts/run-crawl.ts"
+    "crawl:full-pass:smoke": "CRAWL_SMOKE=1 CRAWL_FULL_PASS=1 tsx scripts/run-crawl.ts",
+    "private-release:verify": "tsx scripts/private-release-verify.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
