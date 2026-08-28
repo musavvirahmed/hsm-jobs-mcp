@@ -53,14 +53,54 @@ claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 
 No auth in v1. Rate limits follow the live deploy when present; additional limiting may be added later.
 
-**Local / private release (stdio, optional)**
+### Local / private release
+
+Dogfood on your machine against a **partial index** — same D1 schema as shared release, but you run crawl and dev locally. Every jobs-tool response must carry **index scope**; `private-release:verify` checks this. Attach **both** MCP servers: jobs here, register on **hsm-mcp** (same pairing as shared connect above).
+
+**Do not point your MCP client at `https://hsmjobs.musavvir.work/mcp` for private dogfood.** Shared `/mcp` returns **503** until a **full careers pass** completes. Use localhost Streamable HTTP from `wrangler dev` instead.
+
+#### Env contract
+
+Copy [`.env.example`](.env.example) to `.env`. Cloudflare bootstrap keys are for deploy; private-release keys default for local use.
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `JOBS_INDEX_TARGET` | `local-d1` | Where crawl writes the jobs index (`local-d1`, `sqlite:<path>`; `remote-d1` not implemented in this slice) |
+| `JOBS_INDEX_LOCAL_D1_STATE` | `.wrangler/state` | Wrangler `--persist-to` root (project-relative path to local D1 persistence) |
+| `PRIVATE_RELEASE_ORIGIN` | `http://127.0.0.1:8787` | Base URL for verify and for wiring your MCP client |
+| `PRIVATE_RELEASE_PORT` | `8787` | Local dev port (`private-release:integration` may pick a free port when unset) |
+
+Operator loop reuses `.wrangler/state` unless you override `JOBS_INDEX_LOCAL_D1_STATE`. CI uses an **ephemeral** state dir (temp under the OS tmp) and tears it down after verify.
+
+#### Operator loop (crawl → dev → verify)
 
 ```bash
-npx wrangler dev
-# or wire a local Streamable HTTP URL from wrangler dev in your MCP client
+npm ci
+npm run crawl                  # live fetch → local D1 (partial index)
+npm run dev                    # wrangler dev — separate terminal
+npm run private-release:verify # Streamable HTTP checks on localhost /mcp
 ```
 
-Shared hosted `/mcp` on `hsmjobs.musavvir.work` waits for a **full careers pass**; private/local endpoints may run on a **partial index** when every response carries index scope.
+Smoke/fixture crawl (no live network): `npm run crawl:smoke`. Full careers pass (shared-release gate): `npm run crawl:full-pass`.
+
+One-shot automated loop (crawl → ephemeral D1 → dev → verify → teardown): `npm run private-release:integration`.
+
+#### Connect locally (Streamable HTTP)
+
+```json
+{
+  "mcpServers": {
+    "hsm-jobs": { "url": "http://127.0.0.1:8787/mcp" },
+    "ind-sponsors": { "url": "https://hsm.codealan.com/mcp" }
+  }
+}
+```
+
+If `wrangler dev` binds another port, set `PRIVATE_RELEASE_ORIGIN` (and the client URL) to match.
+
+#### CI verification
+
+Every PR runs the live private-release loop in [`.github/workflows/private-release-integration.yml`](.github/workflows/private-release-integration.yml) (`npm run private-release:integration`). Use `npm run private-release:verify` locally after `dev` is up — same checks CI runs against `/mcp`.
 
 ## Example asks
 

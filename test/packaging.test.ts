@@ -106,3 +106,17 @@ test("README is a product README with required packaging sections", () => {
   expect(readme).toMatch(/\| `\/mcp` \|/);
   expect(readme).toMatch(/\| `\/health` \|/);
 });
+
+test("README documents private-release operator loop", () => {
+  expect(readme).toMatch(/local \/ private release/i);
+  expect(readme).toContain("JOBS_INDEX_TARGET");
+  expect(readme).toContain("JOBS_INDEX_LOCAL_D1_STATE");
+  expect(readme).toContain("PRIVATE_RELEASE_ORIGIN");
+  expect(readme).toMatch(/npm run crawl/);
+  expect(readme).toMatch(/private-release:verify/);
+  expect(readme).toContain("http://127.0.0.1:8787/mcp");
+  expect(readme).toMatch(/503|full careers pass/i);
+  expect(readme).not.toMatch(/golden test/i);
+  expect(readme).toContain("private-release-integration.yml");
+  expect(readme).toContain(HSM_MCP_CLIENT_KEY);
+});
