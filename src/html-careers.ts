@@ -18,6 +18,14 @@ export function careersListingUrls(officialHost: string): string[] {
   return CAREERS_PATHS.map((path) => `https://${host}${path}`);
 }
 
+/** Thin client-rendered shell with no extractable job cards — browser last-resort territory. */
+export function looksLikeJsShell(html: string): boolean {
+  const text = htmlToPlain(html)?.replace(/\s+/g, " ").trim() ?? "";
+  const hasRoot = /id=["'](root|app|__next)["']/i.test(html);
+  const hasScript = /<script\b/i.test(html);
+  return hasScript && hasRoot && text.length < 80;
+}
+
 export function extractJobLinksFromCareersHtml(
   listingUrl: string,
   html: string,

@@ -1,10 +1,12 @@
 /**
- * Operator CLI for out-of-band Opening refresh / register-refresh re-partial.
+ * Operator CLI for out-of-band Opening refresh / full careers pass.
  * Not used by Worker tool handlers — crawl stays off the request path.
  *
  * Usage:
- *   npm run crawl:smoke   # fixture refresh, no live network
- *   npm run crawl         # CRAWL_INDEX_PATH sqlite + live fetch (operator)
+ *   npm run crawl:smoke            # fixture refresh, no live network
+ *   npm run crawl                  # CRAWL_INDEX_PATH sqlite + live fetch (operator)
+ *   npm run crawl:full-pass:smoke  # fixture full careers pass, no live network
+ *   npm run crawl:full-pass        # drive remaining KvKs to terminal outcomes
  *
  * Alert hook: prints repeated crawl failures to stderr (cheap free-tier ops).
  */
@@ -12,6 +14,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createAshbyBoardFeedFetcher } from "../src/ashby-board";
+import { createPlaywrightPageGetter } from "../src/browser-harvest";
+import { runFullCareersPass } from "../src/full-careers-pass";
 import {
   DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
   runOutOfBandCrawl,
@@ -38,6 +42,10 @@ const PRODUCT_DESIGNER_CAREERS =
 
 async function main(): Promise<void> {
   const smoke = process.env.CRAWL_SMOKE === "1";
+  const fullPass = process.env.CRAWL_FULL_PASS === "1";
+  const maxAttempts = process.env.CRAWL_MAX_ATTEMPTS
+    ? Number(process.env.CRAWL_MAX_ATTEMPTS)
+    : undefined;
   const indexPath = smoke ? ":memory:" : sqliteIndexPathFromEnv();
   const index = createSqliteWritableJobsIndex(indexPath);
   const now = () => new Date().toISOString();
@@ -53,25 +61,38 @@ async function main(): Promise<void> {
 
   const getPage = smoke ? smokeGetPage() : createHttpsPageGetter(fetch);
   const fetchBoardFeed = smoke ? smokeFetchBoardFeed() : createAshbyBoardFeedFetcher(fetch);
+  const browser = smoke ? null : await createPlaywrightPageGetter().catch(() => null);
+  const register = createFixtureRegister(
+    [RENTMAN],
+    process.env.CRAWL_REGISTER_AS_OF?.trim() || "2026-08-03",
+  );
+  const providers = {
+    wikidata: { websiteForKvk: async () => null },
+    getPage,
+  };
 
-  const report = await runOutOfBandCrawl({
-    register: createFixtureRegister(
-      [RENTMAN],
-      process.env.CRAWL_REGISTER_AS_OF?.trim() || "2026-08-03",
-    ),
-    index,
-    fetchBoardFeed,
-    providers: {
-      wikidata: { websiteForKvk: async () => null },
-      getPage,
-    },
-    alert: async (alert) => {
-      console.error(`[crawl-alert] ${alert.kind}: ${alert.message}`);
-    },
-    failureAlertThreshold: Number(
-      process.env.CRAWL_FAILURE_ALERT_THRESHOLD ?? DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
-    ),
-  });
+  const report = fullPass
+    ? await runFullCareersPass({
+        register,
+        index,
+        fetchBoardFeed,
+        providers,
+        getBrowserPage: browser?.getPage,
+        maxAttempts,
+      })
+    : await runOutOfBandCrawl({
+        register,
+        index,
+        fetchBoardFeed,
+        providers,
+        getBrowserPage: browser?.getPage,
+        alert: async (alert) => {
+          console.error(`[crawl-alert] ${alert.kind}: ${alert.message}`);
+        },
+        failureAlertThreshold: Number(
+          process.env.CRAWL_FAILURE_ALERT_THRESHOLD ?? DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
+        ),
+      });
 
   const snapshot = await index.snapshot();
   console.log(
@@ -79,22 +100,27 @@ async function main(): Promise<void> {
       {
         index_path: indexPath,
         smoke,
+        full_pass: fullPass,
         re_partialed: report.re_partialed,
         missing_terminal_outcomes_before: report.missing_terminal_outcomes_before,
         missing_terminal_outcomes_after: report.missing_terminal_outcomes_after,
-        crawl_failure_streak: report.crawl_failure_streak,
+        crawl_failure_streak: "crawl_failure_streak" in report ? report.crawl_failure_streak : null,
         last_successful_crawl: snapshot.last_successful_crawl,
         index_scope: snapshot.index_scope,
-        openings_refresh: report.openings_refresh.results,
-        alerts: report.alerts,
+        openings_refresh: "openings_refresh" in report ? report.openings_refresh.results : null,
+        alerts: "alerts" in report ? report.alerts : [],
       },
       null,
       2,
     ),
   );
 
-  if (report.alerts.length > 0) {
+  if ("alerts" in report && report.alerts.length > 0) {
     process.exitCode = 2;
+  }
+
+  if (browser) {
+    await browser.close();
   }
 }
 

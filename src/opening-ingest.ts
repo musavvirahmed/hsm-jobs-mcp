@@ -12,10 +12,11 @@ import { ashbyBoardFeedUrl, type BoardFeedResponse } from "./ashby-board";
 import {
   careersListingUrls,
   extractJobLinksFromCareersHtml,
+  looksLikeJsShell,
   openingFromJobPage,
 } from "./html-careers";
 import { extractHonesty } from "./honesty";
-import type { BoardSeed, OpeningRecord, RegisterJoinStrength, WritableJobsIndex } from "./jobs-index";
+import type { BoardSeed, OpeningRecord, RegisterJoinStrength, TerminalCareersOutcomeKind, WritableJobsIndex } from "./jobs-index";
 import type { RegisterSource, RegisterSponsor } from "./register-source";
 import { PRODUCT_USER_AGENT, robotsAllowsPath } from "./robots";
 import {
@@ -138,13 +139,22 @@ export type LadderIngestResult = {
     | "indexed"
     | "fetch_failed"
     | "no_matching_public_board"
+    | "no_careers_site"
+    | "blocked"
+    | "unsupported_extractor"
     | "skipped_no_website"
     | "unsupported_family";
   ats_family: string | null;
   board_token: string | null;
   openings_written: number;
   openings_removed: number;
-  via: "board_seed" | "fingerprint" | "cautious_board_guess" | "html_careers" | null;
+  via:
+    | "board_seed"
+    | "fingerprint"
+    | "cautious_board_guess"
+    | "html_careers"
+    | "browser_harvest"
+    | null;
 };
 
 export type LadderIngestReport = {
@@ -192,13 +202,15 @@ export async function ingestFromBoardSeeds(opts: {
 
 /**
  * Extraction ladder for sponsors with an accepted official website:
- * board seed → fingerprint → cautious board guess → HTML careers fallback.
+ * board seed → fingerprint → cautious board guess → HTML careers fallback → browser harvest.
  */
 export async function ingestExtractionLadder(opts: {
   register: RegisterSource;
   index: WritableJobsIndex;
   fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
   getPage: WebsiteResolutionProviders["getPage"];
+  /** Last-resort rendered HTML when HTTP careers extraction is empty/thin. */
+  getBrowserPage?: WebsiteResolutionProviders["getPage"];
   now?: () => string;
   invalidateBoardGuessesFor?: string[];
 }): Promise<LadderIngestReport> {
@@ -218,6 +230,7 @@ export async function ingestExtractionLadder(opts: {
       index: opts.index,
       fetchBoardFeed: opts.fetchBoardFeed,
       getPage: opts.getPage,
+      getBrowserPage: opts.getBrowserPage,
       stamp,
     });
     results.push(result);
@@ -240,6 +253,7 @@ async function ingestLadderForSponsor(opts: {
   index: WritableJobsIndex;
   fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
   getPage: WebsiteResolutionProviders["getPage"];
+  getBrowserPage?: WebsiteResolutionProviders["getPage"];
   stamp: string;
 }): Promise<LadderIngestResult> {
   const { sponsor, index, stamp } = opts;
@@ -266,27 +280,19 @@ async function ingestLadderForSponsor(opts: {
       getPage: opts.getPage,
       stamp,
     });
-    if (seeded.status === "indexed" || seeded.status === "empty_board") {
-      return {
-        kvk: sponsor.kvk,
-        status: seeded.status === "indexed" ? "indexed" : "no_matching_public_board",
-        ats_family: seeded.ats_family,
-        board_token: seeded.board_token,
-        openings_written: seeded.openings_written,
-        openings_removed: seeded.openings_removed,
-        via: "board_seed",
-      };
-    }
+    const fromSeed = await ladderResultFromBoard({
+      board: seeded,
+      kvk: sponsor.kvk,
+      officialHost,
+      stamp,
+      index,
+      via: "board_seed",
+      atsFamily: seeded.ats_family,
+      boardToken: seeded.board_token,
+    });
+    if (fromSeed) return fromSeed;
     if (seeded.status === "unsupported_family") {
-      return {
-        kvk: sponsor.kvk,
-        status: "unsupported_family",
-        ats_family: seeded.ats_family,
-        board_token: seeded.board_token,
-        openings_written: 0,
-        openings_removed: 0,
-        via: "board_seed",
-      };
+      continue;
     }
   }
 
@@ -307,17 +313,17 @@ async function ingestLadderForSponsor(opts: {
       stamp,
       persistSeed: true,
     });
-    if (board.status === "indexed" || board.status === "empty_board") {
-      return {
-        kvk: sponsor.kvk,
-        status: board.status === "indexed" ? "indexed" : "no_matching_public_board",
-        ats_family: hit.ats_family,
-        board_token: hit.board_token,
-        openings_written: board.openings_written,
-        openings_removed: board.openings_removed,
-        via: "fingerprint",
-      };
-    }
+    const fromFingerprint = await ladderResultFromBoard({
+      board,
+      kvk: sponsor.kvk,
+      officialHost,
+      stamp,
+      index,
+      via: "fingerprint",
+      atsFamily: hit.ats_family,
+      boardToken: hit.board_token,
+    });
+    if (fromFingerprint) return fromFingerprint;
   }
 
   const slug = hostSlugForBoardGuess(officialHost);
@@ -343,17 +349,17 @@ async function ingestLadderForSponsor(opts: {
         stamp,
         persistSeed: true,
       });
-      if (board.status === "indexed" || board.status === "empty_board") {
-        return {
-          kvk: sponsor.kvk,
-          status: board.status === "indexed" ? "indexed" : "no_matching_public_board",
-          ats_family: family,
-          board_token: slug,
-          openings_written: board.openings_written,
-          openings_removed: board.openings_removed,
-          via: "cautious_board_guess",
-        };
-      }
+      const fromGuess = await ladderResultFromBoard({
+        board,
+        kvk: sponsor.kvk,
+        officialHost,
+        stamp,
+        index,
+        via: "cautious_board_guess",
+        atsFamily: family,
+        boardToken: slug,
+      });
+      if (fromGuess) return fromGuess;
       if (board.status === "fetch_failed") {
         await index.recordBoardGuessMiss({
           kvk: sponsor.kvk,
@@ -385,15 +391,37 @@ async function ingestLadderForSponsor(opts: {
     };
   }
 
+  if (opts.getBrowserPage && shouldTryBrowserHarvest(html)) {
+    const browser = await ingestHtmlCareersFallback({
+      sponsor,
+      officialHost,
+      index,
+      getPage: opts.getBrowserPage,
+      stamp,
+    });
+    if (browser.openings_written > 0) {
+      return {
+        kvk: sponsor.kvk,
+        status: "indexed",
+        ats_family: null,
+        board_token: null,
+        openings_written: browser.openings_written,
+        openings_removed: browser.openings_removed,
+        via: "browser_harvest",
+      };
+    }
+  }
+
+  const outcome = terminalFromHtmlProbe(html);
   await index.recordTerminalOutcome({
     kvk: sponsor.kvk,
-    outcome: "no_matching_public_board",
+    outcome,
     official_website_host: officialHost,
     now: stamp,
   });
   return {
     kvk: sponsor.kvk,
-    status: "no_matching_public_board",
+    status: outcome,
     ats_family: null,
     board_token: null,
     openings_written: 0,
@@ -587,11 +615,15 @@ async function ingestHtmlCareersFallback(opts: {
   index: WritableJobsIndex;
   getPage: WebsiteResolutionProviders["getPage"];
   stamp: string;
-}): Promise<{ openings_written: number; openings_removed: number }> {
+}): Promise<HtmlCareersProbe> {
   const robots = await loadRobots(opts.officialHost, opts.getPage);
   const join = registerJoinAtIndexTime(opts.sponsor);
   const seen = new Set<string>();
   let written = 0;
+  let careersOk = 0;
+  let careersBlocked = 0;
+  let jobLinksFound = 0;
+  let jsShell = false;
 
   for (const listingUrl of careersListingUrls(opts.officialHost)) {
     const listingPath = new URL(listingUrl).pathname;
@@ -599,16 +631,25 @@ async function ingestHtmlCareersFallback(opts: {
       continue;
     }
     const listing = await opts.getPage(listingUrl);
-    if (!listing || !listing.tlsValid || listing.status < 200 || listing.status >= 400) continue;
+    if (isBlockedPage(listing)) {
+      careersBlocked += 1;
+      continue;
+    }
+    if (!listing || listing.status < 200 || listing.status >= 400) continue;
+    careersOk += 1;
+    if (looksLikeJsShell(listing.bodyText)) {
+      jsShell = true;
+    }
 
     const links = extractJobLinksFromCareersHtml(listing.finalUrl, listing.bodyText, opts.officialHost);
+    jobLinksFound += links.length;
     for (const jobUrl of links) {
       const jobPath = new URL(jobUrl).pathname;
       if (!robotsAllowsPath(robots, jobPath, { userAgent: PRODUCT_USER_AGENT }).allowed) {
         continue;
       }
       const page = await opts.getPage(jobUrl);
-      if (!page || !page.tlsValid || page.status < 200 || page.status >= 400) continue;
+      if (isBlockedPage(page) || !page || page.status < 200 || page.status >= 400) continue;
       const draft = openingFromJobPage(jobUrl, page.bodyText);
       if (!draft) continue;
       const identity = `careers_url:${draft.primary_url}`;
@@ -651,7 +692,80 @@ async function ingestHtmlCareersFallback(opts: {
     });
   }
 
-  return { openings_written: written, openings_removed: removed };
+  return {
+    openings_written: written,
+    openings_removed: removed,
+    careers_ok: careersOk,
+    careers_blocked: careersBlocked,
+    job_links_found: jobLinksFound,
+    js_shell: jsShell,
+  };
+}
+
+type HtmlCareersProbe = {
+  openings_written: number;
+  openings_removed: number;
+  careers_ok: number;
+  careers_blocked: number;
+  job_links_found: number;
+  js_shell: boolean;
+};
+
+function shouldTryBrowserHarvest(probe: HtmlCareersProbe): boolean {
+  if (probe.openings_written > 0) return false;
+  if (probe.careers_blocked > 0 && probe.careers_ok === 0) return false;
+  if (probe.careers_ok === 0) return false;
+  return true;
+}
+
+function terminalFromHtmlProbe(probe: HtmlCareersProbe): Exclude<
+  TerminalCareersOutcomeKind,
+  "openings_indexed" | "unresolved_website"
+> {
+  if (probe.careers_blocked > 0 && probe.careers_ok === 0) return "blocked";
+  if (probe.careers_ok === 0) return "no_careers_site";
+  if (probe.js_shell && probe.job_links_found === 0) return "unsupported_extractor";
+  return "no_matching_public_board";
+}
+
+function isBlockedPage(page: PageGetResult | null): boolean {
+  if (!page) return false;
+  if (!page.tlsValid) return true;
+  if (page.status === 401 || page.status === 403 || page.status === 429) return true;
+  if (page.status >= 500) return true;
+  return false;
+}
+
+async function ladderResultFromBoard(opts: {
+  board: BoardIngestResult;
+  kvk: string;
+  officialHost: string;
+  stamp: string;
+  index: WritableJobsIndex;
+  via: "board_seed" | "fingerprint" | "cautious_board_guess";
+  atsFamily: string;
+  boardToken: string;
+}): Promise<LadderIngestResult | null> {
+  if (opts.board.status !== "indexed" && opts.board.status !== "empty_board") {
+    return null;
+  }
+  if (opts.board.status === "empty_board") {
+    await opts.index.recordTerminalOutcome({
+      kvk: opts.kvk,
+      outcome: "no_matching_public_board",
+      official_website_host: opts.officialHost,
+      now: opts.stamp,
+    });
+  }
+  return {
+    kvk: opts.kvk,
+    status: opts.board.status === "indexed" ? "indexed" : "no_matching_public_board",
+    ats_family: opts.atsFamily,
+    board_token: opts.boardToken,
+    openings_written: opts.board.openings_written,
+    openings_removed: opts.board.openings_removed,
+    via: opts.via,
+  };
 }
 
 async function loadRobots(

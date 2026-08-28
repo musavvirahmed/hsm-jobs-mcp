@@ -8,8 +8,9 @@ import {
   type WebsiteIngestReport,
   type WebsiteResolutionProviders,
 } from "./opening-ingest";
+import { listMissingTerminalOutcomeKvks, reconcileIndexPass } from "./index-pass";
 import type { WritableJobsIndex } from "./jobs-index";
-import type { RegisterSource, RegisterSponsor } from "./register-source";
+import { createRegisterSubset, type RegisterSource } from "./register-source";
 
 export const DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD = 2;
 
@@ -35,15 +36,15 @@ export type OutOfBandCrawlReport = {
 /**
  * Out-of-band Opening refresh + register-refresh re-partial.
  * MCP tools stay read-only; this plane writes the durable jobs index.
- *
- * Restoring `full_careers_pass` after every KvK has a terminal careers outcome
- * belongs to the full careers pass runner (separate ticket), not this plane.
+ * Restores `full_careers_pass` when every current-register KvK has a terminal
+ * careers outcome (same reconcile as the full careers pass runner).
  */
 export async function runOutOfBandCrawl(opts: {
   register: RegisterSource;
   index: WritableJobsIndex;
   fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
   providers: WebsiteResolutionProviders;
+  getBrowserPage?: WebsiteResolutionProviders["getPage"];
   now?: () => string;
   alert?: CrawlAlertHook;
   failureAlertThreshold?: number;
@@ -100,6 +101,7 @@ export async function runOutOfBandCrawl(opts: {
         index: opts.index,
         fetchBoardFeed: opts.fetchBoardFeed,
         getPage,
+        getBrowserPage: opts.getBrowserPage,
         now,
       });
     }
@@ -122,41 +124,16 @@ export async function runOutOfBandCrawl(opts: {
     alerts.push(alert);
   }
 
-  const missingAfter = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
+  const reconciled = await reconcileIndexPass(opts.index, register.sponsors);
   return {
     re_partialed: rePartialed,
     missing_terminal_outcomes_before: missingBefore.length,
-    missing_terminal_outcomes_after: missingAfter.length,
+    missing_terminal_outcomes_after: reconciled.missing_terminal_outcomes,
     openings_refresh: openingsRefresh,
     website_ingest: websiteIngest,
     ladder_ingest: ladderIngest,
     crawl_failure_streak: streak,
     alerts,
-  };
-}
-
-async function listMissingTerminalOutcomeKvks(
-  index: WritableJobsIndex,
-  sponsors: RegisterSponsor[],
-): Promise<string[]> {
-  const missing: string[] = [];
-  for (const sponsor of sponsors) {
-    if (!(await index.getTerminalOutcome(sponsor.kvk))) {
-      missing.push(sponsor.kvk);
-    }
-  }
-  return missing;
-}
-
-function createRegisterSubset(source: RegisterSource, kvks: Set<string>): RegisterSource {
-  return {
-    async load() {
-      const full = await source.load();
-      return {
-        asOf: full.asOf,
-        sponsors: full.sponsors.filter((sponsor) => kvks.has(sponsor.kvk)),
-      };
-    },
   };
 }
 

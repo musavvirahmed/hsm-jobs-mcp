@@ -81,10 +81,10 @@ test("out-of-band daily refresh updates crawl freshness via get_index_status wit
     stale: false,
     last_successful_crawl: LATER,
     index_scope: {
-      pass: "partial",
+      pass: "full_careers_pass",
       register_size: 1,
       register_as_of: "2026-08-03",
-      omissions_possible: true,
+      omissions_possible: false,
     },
   });
 
@@ -166,8 +166,8 @@ test("register refresh with a new KvK forces partial and attempts the missing te
   expect(status.structuredContent).toMatchObject({
     last_successful_crawl: LATER,
     index_scope: {
-      pass: "partial",
-      omissions_possible: true,
+      pass: "full_careers_pass",
+      omissions_possible: false,
       register_size: 2,
       register_as_of: "2026-09-01",
     },

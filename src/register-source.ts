@@ -39,3 +39,15 @@ export function createHsmMcpRegisterSource(client: HsmRegisterClient): RegisterS
 function padKvk(kvk: string): string {
   return kvk.replace(/\D/g, "").padStart(8, "0");
 }
+
+export function createRegisterSubset(source: RegisterSource, kvks: Set<string>): RegisterSource {
+  return {
+    async load() {
+      const full = await source.load();
+      return {
+        asOf: full.asOf,
+        sponsors: full.sponsors.filter((sponsor) => kvks.has(sponsor.kvk)),
+      };
+    },
+  };
+}
