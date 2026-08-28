@@ -7,6 +7,8 @@ import type { JobsToolsDeps } from "../src/jobs-tools";
 import {
   connectPrivateReleaseMcp,
   formatPrivateReleaseFailures,
+  indexScopeReadyForPrivateRelease,
+  isGoldenOpening,
   verifyPrivateRelease,
 } from "../src/private-release-verify";
 import type { Client } from "@modelcontextprotocol/client";
@@ -131,6 +133,33 @@ test("connectPrivateReleaseMcp targets /mcp on the configured origin", async () 
   connected = undefined;
   await handler.close();
   expect(seen.some((url) => url.includes("/mcp"))).toBe(true);
+});
+
+test("isGoldenOpening accepts live Ashby board URLs for Rentman Product Designer", () => {
+  expect(
+    isGoldenOpening({
+      url: "https://jobs.ashbyhq.com/rentman/86561042-c8f9-4a2c-9d93-c51ba421e6e7",
+      title: "Product Designer",
+      register_join: { kvk: "60733144" },
+    }),
+  ).toBe(true);
+});
+
+test("indexScopeReadyForPrivateRelease accepts partial and fixture full careers pass", () => {
+  expect(
+    indexScopeReadyForPrivateRelease({
+      pass: "partial",
+      omissions_possible: true,
+      sponsors_with_openings: 1,
+    }),
+  ).toBeNull();
+  expect(
+    indexScopeReadyForPrivateRelease({
+      pass: "full_careers_pass",
+      omissions_possible: false,
+      sponsors_with_openings: 1,
+    }),
+  ).toBeNull();
 });
 
 test("formatPrivateReleaseFailures mentions the golden careers URL", async () => {

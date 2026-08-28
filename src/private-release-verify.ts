@@ -5,6 +5,8 @@ import { SERVER_NAME } from "./mcp-server";
 /** Default local `wrangler dev` origin for private-release verify. */
 export const DEFAULT_PRIVATE_RELEASE_ORIGIN = "http://127.0.0.1:8787";
 
+export const RENTMAN_GOLDEN_KVK = "60733144";
+
 const GOLDEN_QUERY = "product designer";
 
 export type PrivateReleaseVerifyFailure = {
@@ -26,16 +28,69 @@ export function formatPrivateReleaseFailures(failures: PrivateReleaseVerifyFailu
     .join("\n");
 }
 
+export function isGoldenOpening(opening: {
+  url?: string;
+  title?: string;
+  register_join?: { kvk?: string | null };
+}): boolean {
+  if (opening.url && isGoldenOpeningUrl(opening.url)) {
+    return true;
+  }
+  return (
+    opening.register_join?.kvk === RENTMAN_GOLDEN_KVK &&
+    opening.title?.trim().toLowerCase() === "product designer"
+  );
+}
+
+export function indexScopeReadyForPrivateRelease(scope?: {
+  pass?: string;
+  omissions_possible?: boolean;
+  sponsors_with_openings?: number;
+}): PrivateReleaseVerifyFailure | null {
+  if (!scope?.sponsors_with_openings || scope.sponsors_with_openings <= 0) {
+    return {
+      check: "get_index_status sponsors_with_openings",
+      detail: "expected index_scope.sponsors_with_openings > 0 — index looks empty",
+    };
+  }
+  if (scope.pass === "partial") {
+    if (scope.omissions_possible !== true) {
+      return {
+        check: "get_index_status omissions_possible",
+        detail: "expected index_scope.omissions_possible true on a partial private-release index",
+      };
+    }
+    return null;
+  }
+  if (scope.pass === "full_careers_pass") {
+    if (scope.omissions_possible !== false) {
+      return {
+        check: "get_index_status omissions_possible",
+        detail:
+          "expected index_scope.omissions_possible false when pass is full_careers_pass on the fixture register",
+      };
+    }
+    return null;
+  }
+  return {
+    check: "get_index_status pass",
+    detail: `expected index_scope.pass "partial" or "full_careers_pass", got ${String(scope.pass)}`,
+  };
+}
+
 export function isGoldenOpeningUrl(url: string): boolean {
   if (url === RENTMAN_PRODUCT_DESIGNER_URL) {
     return true;
   }
   try {
     const parsed = new URL(url);
-    return (
+    if (
       parsed.hostname.endsWith("rentman.io") &&
       parsed.pathname.toLowerCase().includes("product-designer")
-    );
+    ) {
+      return true;
+    }
+    return parsed.hostname === "jobs.ashbyhq.com" && parsed.pathname.startsWith("/rentman/");
   } catch {
     return false;
   }
@@ -87,11 +142,12 @@ export async function verifyPrivateRelease(client: Client): Promise<PrivateRelea
   const searchPayload = search.structuredContent as {
     openings?: Array<{
       url?: string;
+      title?: string;
       register_join?: { strength?: string; kvk?: string | null };
     }>;
   };
   const openings = searchPayload.openings ?? [];
-  const goldenOpening = openings.find((opening) => opening.url && isGoldenOpeningUrl(opening.url));
+  const goldenOpening = openings.find((opening) => isGoldenOpening(opening));
   if (!goldenOpening?.url) {
     failures.push({
       check: "search_jobs golden Opening",
@@ -160,23 +216,9 @@ export async function verifyPrivateRelease(client: Client): Promise<PrivateRelea
       };
     };
     const scope = statusPayload.index_scope;
-    if (scope?.pass !== "partial") {
-      failures.push({
-        check: "get_index_status pass",
-        detail: `expected index_scope.pass "partial", got ${String(scope?.pass)}`,
-      });
-    }
-    if (scope?.omissions_possible !== true) {
-      failures.push({
-        check: "get_index_status omissions_possible",
-        detail: "expected index_scope.omissions_possible true on a partial private-release index",
-      });
-    }
-    if (!scope?.sponsors_with_openings || scope.sponsors_with_openings <= 0) {
-      failures.push({
-        check: "get_index_status sponsors_with_openings",
-        detail: "expected index_scope.sponsors_with_openings > 0 — index looks empty",
-      });
+    const scopeFailure = indexScopeReadyForPrivateRelease(scope);
+    if (scopeFailure) {
+      failures.push(scopeFailure);
     }
   }
 
