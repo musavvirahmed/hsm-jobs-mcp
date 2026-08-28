@@ -16,6 +16,10 @@ import {
 } from "../src/packaging";
 
 const readme = readFileSync(resolve(import.meta.dirname, "../README.md"), "utf8");
+const developerReadme = readFileSync(
+  resolve(import.meta.dirname, "../docs/README-developers.md"),
+  "utf8",
+);
 
 function emptyDeps() {
   return {
@@ -134,7 +138,7 @@ test("GET /.well-known/mcp/server-card.json mirrors the server card", async () =
   expect(await serverCardJson.json()).toEqual(await mcpJson.json());
 });
 
-test("README is a product README with required packaging sections", () => {
+test("README is a human-first product README", () => {
   expect(readme).toContain(SERVER_NAME);
   expect(readme).toContain(SHARED_RELEASE_ORIGIN);
   expect(readme).toContain(CLIENT_KEY);
@@ -145,23 +149,28 @@ test("README is a product README with required packaging sections", () => {
   for (const tool of V1_JOBS_TOOLS) {
     expect(readme).toContain(tool.name);
   }
-  expect(readme).toMatch(/reading the answers/i);
-  expect(readme).toMatch(/```mermaid/);
-  expect(readme).toMatch(/\| `GET \/`/);
-  expect(readme).toMatch(/\| `\/mcp` \|/);
-  expect(readme).toMatch(/\| `\/health` \|/);
-});
-
-test("README documents private-release operator loop", () => {
-  expect(readme).toMatch(/local \/ private release/i);
-  expect(readme).toContain("JOBS_INDEX_TARGET");
-  expect(readme).toContain("JOBS_INDEX_LOCAL_D1_STATE");
-  expect(readme).toContain("PRIVATE_RELEASE_ORIGIN");
+  expect(readme).toMatch(/how to read the answers/i);
+  expect(readme).toMatch(/try it on your computer/i);
+  expect(readme).toMatch(/git clone/i);
+  expect(readme).toMatch(/node --version/);
   expect(readme).toMatch(/npm run crawl/);
   expect(readme).toMatch(/private-release:verify/);
   expect(readme).toContain("http://127.0.0.1:8787/mcp");
-  expect(readme).toMatch(/503|full careers pass/i);
-  expect(readme).not.toMatch(/golden test/i);
-  expect(readme).toContain("private-release-integration.yml");
-  expect(readme).toContain(HSM_MCP_CLIENT_KEY);
+  expect(readme).toContain("docs/README-developers.md");
+});
+
+test("developer README documents operator loop and architecture", () => {
+  expect(developerReadme).toMatch(/local \/ private release/i);
+  expect(developerReadme).toContain("JOBS_INDEX_TARGET");
+  expect(developerReadme).toContain("JOBS_INDEX_LOCAL_D1_STATE");
+  expect(developerReadme).toContain("PRIVATE_RELEASE_ORIGIN");
+  expect(developerReadme).toMatch(/npm run crawl/);
+  expect(developerReadme).toMatch(/private-release:verify/);
+  expect(developerReadme).toMatch(/503|full careers pass/i);
+  expect(developerReadme).not.toMatch(/golden test/i);
+  expect(developerReadme).toContain("private-release-integration.yml");
+  expect(developerReadme).toMatch(/```mermaid/);
+  expect(developerReadme).toMatch(/\| `GET \/`/);
+  expect(developerReadme).toMatch(/\| `\/mcp` \|/);
+  expect(developerReadme).toMatch(/\| `\/health` \|/);
 });

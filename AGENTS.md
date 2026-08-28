@@ -11,6 +11,7 @@ This repo is **hsm-jobs-mcp** (v1 shipped). Connect, deploy, operator crawl, and
 3. **Refer to tickets by name**, never by a bare `#42`.
 4. **Use `CONTEXT.md` vocabulary.** Don’t invent synonyms for glossary terms.
 5. **Do not scrape LinkedIn.** Do not rebuild [hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp). Do not clone the IND register as the product.
+6. **README edits follow [docs/agents/readme-style.md](docs/agents/readme-style.md).** Use ASD-STE100 STE-flavored principles for human readers. Put operator/architecture detail in [docs/README-developers.md](docs/README-developers.md).
 
 ## How to continue
 
