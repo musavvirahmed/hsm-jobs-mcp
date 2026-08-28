@@ -4,7 +4,7 @@
  *
  * Usage:
  *   npm run crawl:smoke            # fixture refresh, no live network
- *   npm run crawl                  # CRAWL_INDEX_PATH sqlite + live fetch (operator)
+ *   npm run crawl                  # JOBS_INDEX_TARGET local-d1 + live fetch (operator)
  *   npm run crawl:full-pass:smoke  # fixture full careers pass, no live network
  *   npm run crawl:full-pass        # drive remaining KvKs to terminal outcomes
  *
@@ -22,10 +22,7 @@ import {
 } from "../src/out-of-band-crawl";
 import { RENTMAN_ASHBY_BOARD_SEED, type BoardFeedResponse } from "../src/opening-ingest";
 import { createFixtureRegister } from "../src/register-source";
-import {
-  createSqliteWritableJobsIndex,
-  sqliteIndexPathFromEnv,
-} from "../src/sqlite-jobs-index";
+import { createCrawlJobsIndex } from "../src/operator-jobs-index";
 import { createHttpsPageGetter, type PageGetResult } from "../src/website-resolution";
 
 const RENTMAN = { kvk: "60733144", name: "Rentman B.V." };
@@ -46,8 +43,7 @@ async function main(): Promise<void> {
   const maxAttempts = process.env.CRAWL_MAX_ATTEMPTS
     ? Number(process.env.CRAWL_MAX_ATTEMPTS)
     : undefined;
-  const indexPath = smoke ? ":memory:" : sqliteIndexPathFromEnv();
-  const index = createSqliteWritableJobsIndex(indexPath);
+  const { index, targetLabel } = await createCrawlJobsIndex({ smoke });
   const now = () => new Date().toISOString();
 
   if (smoke) {
@@ -98,7 +94,7 @@ async function main(): Promise<void> {
   console.log(
     JSON.stringify(
       {
-        index_path: indexPath,
+        jobs_index_target: targetLabel,
         smoke,
         full_pass: fullPass,
         re_partialed: report.re_partialed,

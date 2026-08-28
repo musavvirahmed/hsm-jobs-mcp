@@ -2,19 +2,41 @@ import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { createD1WritableJobsIndex, type JobsIndexDatabase } from "./d1-jobs-index";
-import type { WritableJobsIndex } from "./jobs-index";
+import { createD1JobsIndex, createD1WritableJobsIndex, type JobsIndexDatabase } from "./d1-jobs-index";
+import type { JobsIndex, WritableJobsIndex } from "./jobs-index";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../migrations");
 
+type SqliteJobsIndexOptions = {
+  /** Skip migration apply when the file is already managed by wrangler local D1. */
+  skipMigrations?: boolean;
+};
+
 /** Local/operator sqlite jobs index (same migrations as D1). */
-export function createSqliteWritableJobsIndex(path = ":memory:"): WritableJobsIndex {
+export function createSqliteWritableJobsIndex(
+  path = ":memory:",
+  options: SqliteJobsIndexOptions = {},
+): WritableJobsIndex {
+  return createD1WritableJobsIndex(openSqliteDatabase(path, options));
+}
+
+/** Read-only sqlite jobs index (same schema as D1). */
+export function createSqliteJobsIndex(
+  path: string,
+  options: SqliteJobsIndexOptions = {},
+): JobsIndex {
+  return createD1JobsIndex(openSqliteDatabase(path, options));
+}
+
+function openSqliteDatabase(path: string, options: SqliteJobsIndexOptions): JobsIndexDatabase {
   if (path !== ":memory:") {
     mkdirSync(dirname(path), { recursive: true });
   }
   const sqlite = new DatabaseSync(path);
-  applyMigrations(sqlite);
-  return createD1WritableJobsIndex(wrapSqlite(sqlite));
+  if (!options.skipMigrations) {
+    applyMigrations(sqlite);
+  }
+  return wrapSqlite(sqlite);
 }
 
 /** In-memory writable jobs index for tests. */
@@ -69,8 +91,4 @@ function wrapSqlite(db: DatabaseSync): JobsIndexDatabase {
       return api;
     },
   };
-}
-
-export function sqliteIndexPathFromEnv(env: NodeJS.ProcessEnv = process.env): string {
-  return env.CRAWL_INDEX_PATH?.trim() || ":memory:";
 }

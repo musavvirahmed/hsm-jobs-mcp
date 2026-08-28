@@ -20,7 +20,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Refresh known Opening paths (fixture smoke)
-        # Production D1 writes: set CRAWL_INDEX_PATH + network secrets and drop CRAWL_SMOKE.
+        # Production D1 writes: set JOBS_INDEX_TARGET=local-d1 (default) + network secrets and drop CRAWL_SMOKE.
         # Default CI/schedule stays free-tier: exercise the operator entrypoint with fixtures.
         run: npm run crawl:smoke
         env:
