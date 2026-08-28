@@ -2,7 +2,7 @@
 
 Canonical for every IDE and model. Claude Code: also see `CLAUDE.md` (it only points here).
 
-This repo is **hsm-jobs-mcp** (v1 shipped). Connect, deploy, operator crawl, and live checks: see [README.md](README.md).
+This repo is **hsm-jobs-mcp** (v1 shipped). Connect, deploy, operator crawl, and live checks: see [README.md](README.md) and [`scripts/`](scripts/).
 
 ## Hard rules
 

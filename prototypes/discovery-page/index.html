@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE — Discovery page skins</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://use.typekit.net" crossorigin />
+  <link rel="preconnect" href="https://p.typekit.net" crossorigin />
+  <script>
+    (function (d) {
+      var config = { kitId: "h9KqFh_3", scriptTimeout: 3000, async: true },
+        h = d.documentElement;
+      h.className += " wf-loading";
+      var t = setTimeout(function () {
+        h.className = h.className.replace(/\bwf-loading\b/g, "");
+      }, config.scriptTimeout);
+      var tk = d.createElement("script"),
+        f = false,
+        s = d.getElementsByTagName("script")[0];
+      tk.src = "https://use.typekit.net/" + config.kitId + ".js";
+      tk.async = true;
+      tk.onload = tk.onreadystatechange = function () {
+        var a = this.readyState;
+        if (f || (a && a !== "complete" && a !== "loaded")) return;
+        f = true;
+        clearTimeout(t);
+        try {
+          Typekit.load(config);
+        } catch (e) {}
+        h.className = h.className.replace(/\bwf-loading\b/g, "");
+      };
+      s.parentNode.insertBefore(tk, s);
+    })(document);
+  </script>
+  <style>
+    /* --- shared prototype chrome (not part of skins under test) --- */
+    .proto-banner {
+      font: 13px/1.4 system-ui, sans-serif;
+      border: 1px dashed #b45309;
+      background: #fffbeb;
+      color: #92400e;
+      padding: 0.55rem 0.75rem;
+      margin: 0 0 1rem;
+      max-width: 46rem;
+    }
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      background: #1c1917;
+      color: #fafaf9;
+      border-radius: 999px;
+      padding: 0.45rem 0.55rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      z-index: 100;
+      font: 13px system-ui, sans-serif;
+    }
+    .switcher button {
+      appearance: none;
+      border: 0;
+      background: #44403c;
+      color: inherit;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .switcher button:hover { background: #57534e; }
+    .switcher .label { min-width: 16rem; text-align: center; }
+
+    /* --- variant A: musavvir.info editorial (tokens from idea-14-ss-to-gh publish tree) --- */
+    body[data-variant="A"] {
+      --bg: #fff;
+      --fg: #000;
+      --muted: #474747;
+      --highlight: #e63148;
+      --gutter: max(4vw, 1.25rem);
+      --site-max: min(1500px, calc(100vw - var(--gutter) * 2));
+      --read-col: min(42rem, 100%);
+      --font-heading: "aktiv-grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --font-meta: "Libre Baskerville", Georgia, serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 400 1.05rem/1.55 var(--font-heading);
+      padding: 0 0 6rem;
+    }
+    body[data-variant="A"] .mi-shell {
+      max-width: var(--site-max);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+    }
+    body[data-variant="A"] .mi-header {
+      padding: 1.35rem 0 0.75rem;
+    }
+    body[data-variant="A"] .mi-site-title {
+      font: 500 1rem/1.2 var(--font-heading);
+      color: var(--fg);
+      text-decoration: none;
+      letter-spacing: -0.01em;
+    }
+    body[data-variant="A"] .mi-site-title:hover {
+      text-decoration: underline;
+      text-decoration-thickness: 0.12em;
+      text-underline-offset: 0.15em;
+    }
+    body[data-variant="A"] .mi-hero {
+      padding: 2.5rem 0 2rem;
+      max-width: var(--read-col);
+    }
+    body[data-variant="A"] .mi-hero h1 {
+      font: 500 clamp(1.85rem, 4.5vw, 3rem) / 1.2 var(--font-heading);
+      margin: 0;
+      white-space: normal;
+      letter-spacing: -0.02em;
+    }
+    body[data-variant="A"] .mi-content {
+      max-width: var(--read-col);
+      padding-bottom: 2rem;
+    }
+    body[data-variant="A"] .sqsrte-text-highlight {
+      position: relative;
+      display: inline;
+      white-space: nowrap;
+    }
+    body[data-variant="A"] .sqsrte-text-highlight::after {
+      content: "";
+      position: absolute;
+      left: -0.04em;
+      right: -0.04em;
+      bottom: 0.02em;
+      height: 0.42em;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 12' preserveAspectRatio='none'%3E%3Cpath d='M2 9 C 25 2, 75 2, 98 8' fill='none' stroke='%23e63148' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E")
+        no-repeat center bottom / 100% 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+    body[data-variant="A"] h2 {
+      font: 500 1.35rem/1.25 var(--font-heading);
+      margin: 2.5rem 0 0.85rem;
+      letter-spacing: -0.015em;
+    }
+    body[data-variant="A"] p { margin: 0 0 1rem; }
+    body[data-variant="A"] ul { margin: 0 0 1rem; padding-left: 1.15rem; }
+    body[data-variant="A"] li { margin-bottom: 0.4rem; }
+    body[data-variant="A"] a {
+      color: inherit;
+      font-weight: 500;
+      text-decoration: underline;
+      text-decoration-thickness: 0.12em;
+      text-underline-offset: 0.15em;
+      text-decoration-skip-ink: auto;
+    }
+    body[data-variant="A"] code,
+    body[data-variant="A"] pre {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.86em;
+      font-weight: 400;
+    }
+    body[data-variant="A"] code {
+      background: #f5f5f5;
+      padding: 0.1em 0.35em;
+      border-radius: 2px;
+    }
+    body[data-variant="A"] pre {
+      background: #f5f5f5;
+      padding: 0.9rem 1rem;
+      overflow-x: auto;
+      margin: 0 0 1rem;
+      border-radius: 2px;
+    }
+    body[data-variant="A"] pre code { background: none; padding: 0; }
+    body[data-variant="A"] .muted {
+      color: var(--muted);
+      font: italic 400 0.92em/1.5 var(--font-meta);
+    }
+    body[data-variant="A"] .proto-banner {
+      max-width: var(--site-max);
+      margin: 0 auto 0;
+      padding: 0.55rem var(--gutter);
+    }
+
+    /* --- variant B: idea-2 TUI --- */
+    body[data-variant="B"] {
+      --bg: #000000;
+      --fg: #e6e6e6;
+      --muted: #6c6c6c;
+      --cyan: #00d7d7;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 13px/1.6 var(--mono);
+      padding: 2rem 1.25rem 6rem;
+    }
+    body[data-variant="B"] .page {
+      max-width: 46rem;
+      margin: 0 auto;
+    }
+    body[data-variant="B"] .tui-header {
+      border: 4px double var(--cyan);
+      text-align: center;
+      padding: 8px 16px;
+      margin-bottom: 16px;
+    }
+    body[data-variant="B"] .tui-header h1 {
+      font-size: 1.35rem;
+      font-weight: 400;
+      margin: 0;
+      color: var(--cyan);
+    }
+    body[data-variant="B"] .tui-header .lede {
+      margin: 8px 0 0;
+      text-align: left;
+      color: var(--fg);
+      font-size: 13px;
+    }
+    body[data-variant="B"] .tui-box {
+      border: 1px solid var(--cyan);
+      position: relative;
+      padding: 16px 12px 10px;
+      margin-bottom: 12px;
+    }
+    body[data-variant="B"] .tui-box::before {
+      content: attr(data-title);
+      position: absolute;
+      top: 0;
+      left: 10px;
+      transform: translateY(-50%);
+      background: var(--bg);
+      color: var(--cyan);
+      padding: 0 6px;
+    }
+    body[data-variant="B"] h2 { display: none; }
+    body[data-variant="B"] p { margin: 0 0 0.75rem; }
+    body[data-variant="B"] ul { margin: 0; padding-left: 1.2rem; }
+    body[data-variant="B"] li { margin-bottom: 0.35rem; }
+    body[data-variant="B"] a { color: var(--cyan); }
+    body[data-variant="B"] code,
+    body[data-variant="B"] pre {
+      font-family: var(--mono);
+      background: rgba(127, 127, 127, 0.14);
+      border-radius: 4px;
+    }
+    body[data-variant="B"] code { padding: 0.1em 0.35em; }
+    body[data-variant="B"] pre {
+      padding: 0.8em 1em;
+      overflow-x: auto;
+      margin: 0 0 0.75rem;
+    }
+    body[data-variant="B"] pre code { background: none; padding: 0; }
+    body[data-variant="B"] .muted { color: var(--muted); font-size: 0.92em; }
+    body[data-variant="B"] .tui-footer {
+      color: var(--muted);
+      margin-top: 1rem;
+      font-size: 0.92em;
+    }
+
+    /* --- variant C: hsm-mcp sibling docs --- */
+    body[data-variant="C"] {
+      color-scheme: light dark;
+      margin: 0;
+      font: 16px/1.6 system-ui, sans-serif;
+      padding: 0 1.25rem 6rem;
+    }
+    body[data-variant="C"] .page {
+      max-width: 46rem;
+      margin: 3rem auto;
+    }
+    body[data-variant="C"] h1 { font-size: 1.6rem; margin: 0 0 0.75rem; }
+    body[data-variant="C"] h2 { font-size: 1.15rem; margin-top: 2rem; margin-bottom: 0.5rem; }
+    body[data-variant="C"] p { margin: 0 0 0.75rem; }
+    body[data-variant="C"] ul { padding-left: 1.2rem; margin: 0 0 0.75rem; }
+    body[data-variant="C"] code,
+    body[data-variant="C"] pre {
+      font-family: ui-monospace, monospace;
+      background: rgba(127, 127, 127, 0.14);
+      border-radius: 4px;
+    }
+    body[data-variant="C"] code { padding: 0.1em 0.35em; }
+    body[data-variant="C"] pre {
+      padding: 0.8em 1em;
+      overflow-x: auto;
+      margin: 0 0 0.75rem;
+    }
+    body[data-variant="C"] pre code { background: none; padding: 0; }
+    body[data-variant="C"] a { color: inherit; }
+    body[data-variant="C"] .muted { opacity: 0.7; font-size: 0.9em; }
+  </style>
+</head>
+<body data-variant="A">
+  <!--
+    PROTOTYPE (throwaway): Discovery page skins
+    Question: musavvir.info editorial vs idea-2 TUI vs hsm-mcp docs?
+    Variants via ?variant=A|B|C. Winner: pending.
+  -->
+  <div id="root"></div>
+
+  <div class="switcher" role="navigation" aria-label="Prototype variant switcher">
+    <button type="button" id="prev" aria-label="Previous variant">←</button>
+    <div class="label" id="switch-label"></div>
+    <button type="button" id="next" aria-label="Next variant">→</button>
+  </div>
+
+  <script>
+    const ORIGIN = "https://hsmjobs.musavvir.work";
+    const HSM_MCP_ORIGIN = "https://hsm.codealan.com";
+    const CLIENT_KEY = "hsm-jobs";
+    const HSM_MCP_CLIENT_KEY = "ind-sponsors";
+    const SERVER_NAME = "hsm-jobs-mcp";
+
+    const V1_JOBS_TOOLS = [
+      { name: "search_jobs", description: "Openings at recognised sponsors by title/free text or 8-digit KvK; optional location." },
+      { name: "get_job", description: "One Opening by its primary careers or ATS URL; returns structured miss when absent." },
+      { name: "get_index_status", description: "Jobs-index health, crawl freshness, and index scope (partial vs full careers pass)." },
+    ];
+
+    const EXAMPLE_ASKS = [
+      "Which recognised sponsors are hiring product designers?",
+      "Which recognised sponsors are hiring software engineers in Amsterdam?",
+      "What Openings do you have for KvK 60733144?",
+      "How fresh is the jobs index?",
+      "Is Adyen a recognised sponsor? (use hsm-mcp / ind-sponsors — not this server)",
+    ];
+
+    const READING_THE_ANSWERS_GIST = [
+      "Honesty fields (salary signal, Dutch-required, sponsorship willingness) stay separate — unknown is valid.",
+      "Register join is match strength, not a yes/no verdict that this vacancy will sponsor your HSM transfer.",
+      "This server does not compare pay to the IND salary criterion — you or your agent do.",
+      "Empty results are not proof that no Openings exist; check index scope on partial indexes.",
+    ];
+
+    const VARIANTS = {
+      A: { name: "musavvir.info editorial" },
+      B: { name: "idea-2 TUI" },
+      C: { name: "hsm-mcp sibling docs" },
+    };
+    const ORDER = ["A", "B", "C"];
+
+    const mcpUrl = `${ORIGIN}/mcp`;
+    const healthUrl = `${ORIGIN}/health`;
+    const hsmMcpUrl = `${HSM_MCP_ORIGIN}/mcp`;
+
+    function esc(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function listItems(items) {
+      return items.map((item) => `<li>${esc(item)}</li>`).join("\n");
+    }
+
+    function toolList() {
+      return V1_JOBS_TOOLS.map(
+        (t) => `<li><code>${esc(t.name)}</code> — ${esc(t.description)}</li>`,
+      ).join("\n");
+    }
+
+    const connectInner = `
+      <p>Attach <strong>both</strong> servers: <code>${esc(CLIENT_KEY)}</code> here and
+        <code>${esc(HSM_MCP_CLIENT_KEY)}</code> on hsm-mcp.</p>
+      <p><strong>Claude Code</strong></p>
+      <pre><code>claude mcp add --transport http ${esc(CLIENT_KEY)} ${esc(mcpUrl)}
+claude mcp add --transport http ${esc(HSM_MCP_CLIENT_KEY)} ${esc(hsmMcpUrl)}</code></pre>
+      <p><strong>claude.ai / Claude Desktop</strong> — Settings → Connectors → Add custom connector →
+        <code>${esc(mcpUrl)}</code> (and add hsm-mcp separately).</p>
+      <p><strong>Any MCP client</strong> (Cursor, etc.)</p>
+      <pre><code>{
+  "mcpServers": {
+    "${esc(CLIENT_KEY)}": { "url": "${esc(mcpUrl)}" },
+    "${esc(HSM_MCP_CLIENT_KEY)}": { "url": "${esc(hsmMcpUrl)}" }
+  }
+}</code></pre>
+      <p class="muted">No auth in v1. Rate limits follow the live deploy when present; additional limiting may be added later.</p>`;
+
+    const pathsInner = `
+      <ul>
+        <li><code>/</code> — this discovery page</li>
+        <li><code>/mcp</code> — Streamable HTTP MCP (<code>serverInfo.name</code>: <code>${esc(SERVER_NAME)}</code>)</li>
+        <li><code>/health</code> — coarse operator health (<a href="${esc(healthUrl)}">${esc(healthUrl)}</a>)</li>
+      </ul>`;
+
+    const toolsInner = `<ul>${toolList()}</ul>`;
+    const asksInner = `<ul>${listItems(EXAMPLE_ASKS)}</ul>`;
+    const readingInner = `<ul>${listItems(READING_THE_ANSWERS_GIST)}</ul>`;
+    const freshnessInner = `
+      <p>
+        Coarse deploy health: <a href="${esc(healthUrl)}"><code>/health</code></a>.
+        Rich index scope, crawl timestamps, and register-join upstream status: ask via
+        <code>get_index_status</code> in your MCP client.
+      </p>`;
+
+    const footerInner = `
+      <p class="muted">
+        Unofficial project. Openings come from employer careers/ATS pages; register facts come from
+        <a href="https://ind.nl/en/public-register-recognised-sponsors/public-register-work">IND</a>
+        via hsm-mcp. Verify against primary sources before acting.
+      </p>`;
+
+    function hl(text) {
+      return `<span class="sqsrte-text-highlight">${esc(text)}</span>`;
+    }
+
+    const ledeHero = `
+      MCP server for ${hl("Openings")} on recognised-sponsor (IND Work) companies’
+      careers and ATS pages — layer 2 only. Not a public job portal. Pair with
+      <a href="${esc(HSM_MCP_ORIGIN)}">hsm-mcp</a> for register-only questions.`;
+
+    const lede = ledeHero;
+
+    function section(title, inner) {
+      return `<h2>${esc(title)}</h2>${inner}`;
+    }
+
+    function tuiBox(title, inner) {
+      return `<section class="tui-box" data-title="${esc(title)}">${inner}</section>`;
+    }
+
+    function renderFlowing() {
+      return `
+        <div class="proto-banner">THROWAWAY PROTOTYPE — not production. Cycle variants with the bar below or ?variant=A|B|C.</div>
+        <main class="page">
+          <h1>${esc(SERVER_NAME)}</h1>
+          <p>${ledeHero}</p>
+          ${section("Connect (Streamable HTTP)", connectInner)}
+          ${section("Public paths", pathsInner)}
+          ${section("Tools", toolsInner)}
+          ${section("Then just ask", asksInner)}
+          ${section("Reading the answers", readingInner)}
+          ${section("Freshness", freshnessInner)}
+          ${footerInner}
+        </main>`;
+    }
+
+    function renderEditorial() {
+      return `
+        <div class="proto-banner">THROWAWAY PROTOTYPE — not production. Cycle variants with the bar below or ?variant=A|B|C.</div>
+        <div class="mi-shell">
+          <header class="mi-header">
+            <a class="mi-site-title" href="#">${esc(SERVER_NAME)}</a>
+          </header>
+          <div class="mi-hero sqs-html-content">
+            <h1>${ledeHero}</h1>
+          </div>
+          <div class="mi-content sqs-html-content">
+            ${section("Connect (Streamable HTTP)", connectInner)}
+            ${section("Public paths", pathsInner)}
+            ${section("Tools", toolsInner)}
+            ${section("Then just ask", asksInner)}
+            ${section("Reading the answers", readingInner)}
+            ${section("Freshness", freshnessInner)}
+            ${footerInner}
+          </div>
+        </div>`;
+    }
+
+    function renderTui() {
+      return `
+        <div class="proto-banner">THROWAWAY PROTOTYPE — not production. Cycle variants with the bar below or ?variant=A|B|C.</div>
+        <div class="page">
+          <header class="tui-header">
+            <h1>${esc(SERVER_NAME)}</h1>
+            <p class="lede">${ledeHero}</p>
+          </header>
+          ${tuiBox("Connect (Streamable HTTP)", connectInner)}
+          ${tuiBox("Public paths", pathsInner)}
+          ${tuiBox("Tools", toolsInner)}
+          ${tuiBox("Then just ask", asksInner)}
+          ${tuiBox("Reading the answers", readingInner)}
+          ${tuiBox("Freshness", freshnessInner)}
+          <div class="tui-footer">${footerInner}</div>
+        </div>`;
+    }
+
+    function render(variant) {
+      document.body.dataset.variant = variant;
+      const html =
+        variant === "B" ? renderTui() : variant === "A" ? renderEditorial() : renderFlowing();
+      document.getElementById("root").innerHTML = html;
+      document.getElementById("switch-label").textContent =
+        `${variant} — ${VARIANTS[variant].name}`;
+    }
+
+    function currentVariant() {
+      const v = new URLSearchParams(location.search).get("variant") || "A";
+      return ORDER.includes(v) ? v : "A";
+    }
+
+    function setVariant(v) {
+      const url = new URL(location.href);
+      url.searchParams.set("variant", v);
+      history.replaceState({}, "", url);
+      render(v);
+    }
+
+    function cycle(delta) {
+      const i = ORDER.indexOf(currentVariant());
+      setVariant(ORDER[(i + delta + ORDER.length) % ORDER.length]);
+    }
+
+    document.getElementById("prev").addEventListener("click", () => cycle(-1));
+    document.getElementById("next").addEventListener("click", () => cycle(1));
+    document.addEventListener("keydown", (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === "ArrowLeft") cycle(-1);
+      if (e.key === "ArrowRight") cycle(1);
+    });
+
+    render(currentVariant());
+  </script>
+</body>
+</html>
