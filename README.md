@@ -137,7 +137,7 @@ flowchart LR
     end
 
     subgraph cf["Cloudflare Workers + D1"]
-        worker["Worker<br/>GET / · /mcp · /health"]
+        worker["Worker<br/>GET / · /mcp · /health · .well-known"]
         d1[("D1 jobs index<br/>Openings + terminal outcomes")]
     end
 
@@ -151,6 +151,8 @@ flowchart LR
 | Path | What happens |
 | ---- | ------------ |
 | `GET /` | Human discovery page (connect, tools, example asks) |
+| `GET /.well-known/mcp.json` | MCP server card (SEP-2127-style machine discovery) |
+| `GET /.well-known/mcp/server-card.json` | Same server card (SEP-1649 path alias) |
 | `/mcp` | Streamable HTTP → `search_jobs` · `get_job` · `get_index_status` |
 | `/health` | Coarse operator/CI health (`up` / `degraded` / `stale`) |
 | Crawl | scheduled job or operator CLI → D1 (not inside tool calls) |

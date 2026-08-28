@@ -3,6 +3,7 @@ import { discoveryPageResponse } from "./discovery-page";
 import { isSharedReleaseHost, sharedReleaseAllowed } from "./index-pass";
 import type { JobsToolsDeps } from "./jobs-tools";
 import { createJobsMcpServer } from "./mcp-server";
+import { SERVER_CARD_PATHS, serverCardResponse } from "./server-card";
 
 export type CoarseHealth = "up" | "degraded" | "stale";
 
@@ -10,6 +11,12 @@ export async function handleRequest(request: Request, deps: JobsToolsDeps): Prom
   const url = new URL(request.url);
   if (url.pathname === "/" && request.method === "GET") {
     return discoveryPageResponse(url.origin);
+  }
+  if (
+    request.method === "GET" &&
+    (SERVER_CARD_PATHS as readonly string[]).includes(url.pathname)
+  ) {
+    return serverCardResponse(url.origin);
   }
   if (url.pathname === "/health") {
     return healthResponse(deps);

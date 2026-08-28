@@ -89,6 +89,51 @@ test("GET / is connect/discovery only — no portal surfaces", async () => {
   expect(html).not.toMatch(/stdio/i);
 });
 
+test("GET / uses TUI discovery chrome (variant B winner)", async () => {
+  const response = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/`),
+    emptyDeps(),
+  );
+  const html = await response.text();
+  expect(html).toContain('class="tui-header"');
+  expect(html).toContain('class="tui-box"');
+  expect(html).toContain("data-title=\"Connect (Streamable HTTP)\"");
+});
+
+test("GET /.well-known/mcp.json serves a server card", async () => {
+  const response = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/.well-known/mcp.json`),
+    emptyDeps(),
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toMatch(/application\/json/);
+  expect(response.headers.get("cache-control")).toMatch(/max-age=3600/);
+  expect(response.headers.get("access-control-allow-origin")).toBe("*");
+  const card = (await response.json()) as {
+    name: string;
+    version: string;
+    remotes: Array<{ type: string; url: string }>;
+  };
+  expect(card.name).toBe(SERVER_NAME);
+  expect(card.version).toBeTruthy();
+  expect(card.remotes).toEqual([
+    { type: "streamable-http", url: `${SHARED_RELEASE_ORIGIN}/mcp` },
+  ]);
+});
+
+test("GET /.well-known/mcp/server-card.json mirrors the server card", async () => {
+  const mcpJson = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/.well-known/mcp.json`),
+    emptyDeps(),
+  );
+  const serverCardJson = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/.well-known/mcp/server-card.json`),
+    emptyDeps(),
+  );
+  expect(serverCardJson.status).toBe(200);
+  expect(await serverCardJson.json()).toEqual(await mcpJson.json());
+});
+
 test("README is a product README with required packaging sections", () => {
   expect(readme).toContain(SERVER_NAME);
   expect(readme).toContain(SHARED_RELEASE_ORIGIN);
