@@ -1,0 +1,29 @@
+# Live private-release seam: Ashby fetch → ephemeral local D1 → wrangler dev → Streamable HTTP verify.
+# Parallel to `.github/workflows/crawl.yml` fixture-smoke lane (network-free, not a substitute).
+name: Private-release integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  private-release-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests for private-release orchestration seam
+        run: npm test -- test/private-release-integration.test.ts
+      - name: Unit tests for private-release verify seam
+        run: npm test -- test/private-release-verify.test.ts
+      - name: Full private-release loop (live network, ephemeral local D1)
+        run: npm run private-release:integration
