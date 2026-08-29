@@ -22,26 +22,19 @@ The public website is not ready for full personal use yet. It returns an error u
 
 You need a copy of this project on your computer.
 
-**Option A — clone (most people)**
+**Option A — clone (recommended)**
+
+This repo is **private**. Sign in to GitHub on the new machine before you clone.
 
 ```bash
+gh auth login
 git clone https://github.com/musavvirahmed/hsm-jobs-mcp.git
 cd hsm-jobs-mcp
 ```
 
-**Option B — fork first**
+If you do not use `gh`, use HTTPS clone and enter a GitHub username plus a [personal access token](https://github.com/settings/tokens) when Git asks for a password.
 
-1. Open [github.com/musavvirahmed/hsm-jobs-mcp](https://github.com/musavvirahmed/hsm-jobs-mcp) and click **Fork**.
-2. Clone **your** fork:
-
-```bash
-git clone https://github.com/YOUR-GITHUB-USERNAME/hsm-jobs-mcp.git
-cd hsm-jobs-mcp
-```
-
-Replace `YOUR-GITHUB-USERNAME` with your GitHub username.
-
-**Option C — download without git**
+**Option B — download without git**
 
 1. Open [github.com/musavvirahmed/hsm-jobs-mcp](https://github.com/musavvirahmed/hsm-jobs-mcp).
 2. Click **Code** → **Download ZIP**.
@@ -83,29 +76,33 @@ npm ci
 
 This downloads the packages the project needs. It may take a minute.
 
+**Two terminals:** Steps 3 and 4 need the server running in one terminal while you run commands in another. Step 2 below uses your first terminal. Step 3 opens a second one.
+
 ### Step 2 — Download job listings
 
-This fetches live jobs and saves them on your computer.
+In the **same terminal** as step 1:
 
 ```bash
 npm run crawl
 ```
 
-Wait until it finishes. You should see JSON output at the end.
+Wait until it finishes. You should see JSON output at the end. When it is done, this terminal is free for step 4.
 
 ### Step 3 — Start the local server
 
-Open a **second** terminal in the same project folder.
+`npm run dev` keeps running until you stop it. It will block the terminal.
+
+Open a **new** terminal window or tab in the same project folder. Run:
 
 ```bash
 npm run dev
 ```
 
-Leave this running. The server uses **http://127.0.0.1:8787** by default.
+Leave this terminal open. The server uses **http://127.0.0.1:8787** by default.
 
 ### Step 4 — Check that it works
 
-Go back to the **first** terminal.
+In a terminal that is **not** running `npm run dev` — the one you used for steps 1 and 2 is fine. If you only have one terminal, open a new one now.
 
 ```bash
 npm run private-release:verify
@@ -116,8 +113,8 @@ If you see `ready at http://127.0.0.1:8787/mcp`, you are good.
 If it fails:
 
 1. Make sure step 2 finished without errors.
-2. Make sure step 3 is still running (`npm run dev` in the other terminal).
-3. Run step 4 again.
+2. Make sure step 3 is still running in the other terminal.
+3. Run step 4 again in a terminal that is not running the server.
 
 ### Step 5 — Connect your AI tool
 
@@ -134,6 +131,8 @@ Add **two** servers — jobs **and** register lookup:
 }
 ```
 
+In **Cursor Settings → MCP**, both servers should show green and list their tools (`hsm-jobs`: 3 tools, `ind-sponsors`: 2 tools). That means Cursor can reach the servers. It does **not** mean chat will use them yet — see step 6.
+
 **Claude Code**
 
 ```bash
@@ -142,6 +141,34 @@ claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 ```
 
 **Important:** Use `http://127.0.0.1:8787/mcp` on your machine. Do **not** use `https://hsmjobs.musavvir.work/mcp` for local testing. The public URL blocks access until indexing is complete.
+
+### Step 6 — Open this project in Cursor
+
+Connecting MCP in Settings is not enough. You must **open this clone as your Cursor workspace**.
+
+1. In Cursor: **File → Open Folder…**
+2. Choose the `hsm-jobs-mcp` folder (the one that contains this README).
+3. Start a **new chat** in that window.
+
+If you chat from a different folder, Cursor may search local files or the web instead of calling `hsm-jobs`. You will get wrong answers even when MCP shows connected.
+
+### Step 7 — Ask your first question
+
+In the chat for **this** folder, try:
+
+> How fresh is the jobs index?
+
+**You know MCP worked when:**
+
+- The reply mentions **last successful crawl**, **jobs count**, or **index scope** from live data — not a guess from random websites.
+- The terminal running `npm run dev` prints **`POST /mcp 200`** (or `202`) at the same time as the answer.
+- In Cursor, the reply shows it used an MCP **tool** (for example `get_index_status`).
+
+**If the agent searches your repo or talks about unrelated APIs**, you are in the wrong folder or the wrong chat. Open the `hsm-jobs-mcp` folder and start a new chat. You can also ask explicitly: *Use the hsm-jobs MCP tool `get_index_status`.*
+
+Then try a job search:
+
+> Which recognised sponsors are hiring product designers?
 
 ### Optional settings
 
@@ -164,6 +191,8 @@ Copy [`.env.example`](.env.example) to `.env` if you want to change defaults. Mo
 Register-only questions belong on **hsm-mcp**, not here.
 
 ## What you can ask
+
+After step 7, ask in plain language in a chat for **this** folder:
 
 - *"Which recognised sponsors are hiring product designers?"*
 - *"Which recognised sponsors are hiring software engineers in Amsterdam?"*

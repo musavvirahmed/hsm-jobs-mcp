@@ -157,6 +157,8 @@ test("README is a human-first product README", () => {
   expect(readme).toMatch(/private-release:verify/);
   expect(readme).toContain("http://127.0.0.1:8787/mcp");
   expect(readme).toContain("docs/README-developers.md");
+  expect(readme).toMatch(/open folder/i);
+  expect(readme).toMatch(/get_index_status/);
 });
 
 test("developer README documents operator loop and architecture", () => {
