@@ -4,6 +4,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { JobsIndex, WritableJobsIndex } from "./jobs-index";
 import {
+  createRemoteD1JobsIndex,
+  createRemoteD1WritableJobsIndex,
+  type RemoteD1QueryClient,
+} from "./remote-d1-jobs-index";
+import {
   createSqliteJobsIndex,
   createSqliteWritableJobsIndex,
 } from "./sqlite-jobs-index";
@@ -28,6 +33,10 @@ export type OperatorJobsIndexOptions = {
   /** Wrangler local persistence root (`--persist-to`). Defaults to `<projectRoot>/.wrangler/state`. */
   localD1StateDir?: string;
   projectRoot?: string;
+  /** Test seam: inject a remote D1 query client instead of Cloudflare REST. */
+  remoteD1Client?: RemoteD1QueryClient;
+  /** Skip wrangler remote migrations (tests / pre-migrated DB). */
+  skipRemoteD1Migrations?: boolean;
 };
 
 export function parseJobsIndexTarget(raw: string): JobsIndexTarget {
@@ -106,9 +115,11 @@ export async function createOperatorWritableJobsIndex(
 ): Promise<WritableJobsIndex> {
   const target = options.target ?? jobsIndexTargetFromEnv();
   if (target.kind === "remote-d1") {
-    throw new Error(
-      "JOBS_INDEX_TARGET=remote-d1 is not implemented in this slice; use local-d1 or sqlite:<path>",
-    );
+    return createRemoteD1WritableJobsIndex({
+      projectRoot: options.projectRoot,
+      client: options.remoteD1Client,
+      skipMigrations: options.skipRemoteD1Migrations,
+    });
   }
   if (target.kind === "sqlite") {
     return createSqliteWritableJobsIndex(target.path);
@@ -123,9 +134,11 @@ export async function createOperatorJobsIndex(
 ): Promise<JobsIndex> {
   const target = options.target ?? jobsIndexTargetFromEnv();
   if (target.kind === "remote-d1") {
-    throw new Error(
-      "JOBS_INDEX_TARGET=remote-d1 is not implemented in this slice; use local-d1 or sqlite:<path>",
-    );
+    return createRemoteD1JobsIndex({
+      projectRoot: options.projectRoot,
+      client: options.remoteD1Client,
+      skipMigrations: true,
+    });
   }
   if (target.kind === "sqlite") {
     return createSqliteJobsIndex(target.path);

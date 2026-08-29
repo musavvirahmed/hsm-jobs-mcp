@@ -14,7 +14,10 @@ Copy [`.env.example`](../.env.example) to `.env`. Cloudflare bootstrap keys are 
 
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
-| `JOBS_INDEX_TARGET` | `local-d1` | Where crawl writes the jobs index (`local-d1`, `sqlite:<path>`; `remote-d1` not implemented in this slice) |
+| `JOBS_INDEX_TARGET` | `local-d1` | Where crawl writes the jobs index: `local-d1` (private release), `remote-d1` (shared D1 the Worker reads), or `sqlite:<path>` |
+| `CLOUDFLARE_ACCOUNT_ID` | — | Required when `JOBS_INDEX_TARGET=remote-d1` (from Cloudflare dashboard) |
+| `D1_DATABASE_ID` | — | Required when `JOBS_INDEX_TARGET=remote-d1` (same UUID as `wrangler.jsonc` / bootstrap) |
+| `CLOUDFLARE_API_TOKEN` | — | Required when `JOBS_INDEX_TARGET=remote-d1` (D1 edit token) |
 | `JOBS_INDEX_LOCAL_D1_STATE` | `.wrangler/state` | Wrangler `--persist-to` root (project-relative path to local D1 persistence) |
 | `PRIVATE_RELEASE_ORIGIN` | `http://127.0.0.1:8787` | Base URL for verify and for wiring your MCP client |
 | `PRIVATE_RELEASE_PORT` | `8787` | Local dev port (`private-release:integration` may pick a free port when unset) |
@@ -31,6 +34,14 @@ npm run private-release:verify # Streamable HTTP checks on localhost /mcp
 ```
 
 Smoke/fixture crawl (no live network): `npm run crawl:smoke`. Full careers pass (shared-release gate): `npm run crawl:full-pass`.
+
+Production full pass writes to the shared jobs index:
+
+```bash
+JOBS_INDEX_TARGET=remote-d1 npm run crawl:full-pass
+```
+
+Requires `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`, and `CLOUDFLARE_API_TOKEN` in `.env`. The runner applies remote D1 migrations on first connect, skips KvKs that already have **terminal careers outcomes**, and prints `jobs_index_target: "remote-d1"` in JSON output. Stop with Ctrl+C; re-run the same command to resume.
 
 One-shot automated loop (crawl → ephemeral D1 → dev → verify → teardown): `npm run private-release:integration`.
 
