@@ -175,6 +175,7 @@ test("developer README documents operator loop and architecture", () => {
   expect(developerReadme).toContain("PRIVATE_RELEASE_ORIGIN");
   expect(developerReadme).toMatch(/npm run crawl/);
   expect(developerReadme).toMatch(/private-release:verify/);
+  expect(developerReadme).toMatch(/shared-release:verify/);
   expect(developerReadme).toMatch(/503|full careers pass/i);
   expect(developerReadme).not.toMatch(/golden test/i);
   expect(developerReadme).toContain("private-release-integration.yml");

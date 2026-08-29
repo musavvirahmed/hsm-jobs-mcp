@@ -38,6 +38,22 @@ One-shot automated loop (crawl → ephemeral D1 → dev → verify → teardown)
 
 Every PR runs the live private-release loop in [`.github/workflows/private-release-integration.yml`](../.github/workflows/private-release-integration.yml) (`npm run private-release:integration`). Use `npm run private-release:verify` locally after `dev` is up — same checks CI runs against `/mcp`.
 
+## Shared release (operator)
+
+After the production **full careers pass** completes on remote D1, verify the public origin before pointing MCP clients at it:
+
+```bash
+npm run shared-release:verify
+```
+
+Default target: `https://hsmjobs.musavvir.work` (override with `SHARED_RELEASE_ORIGIN`). Checks:
+
+- `GET /health` returns 200 JSON (not degraded)
+- `POST /mcp` initialize succeeds (not 503)
+- `get_index_status` reports `pass: full_careers_pass`, `omissions_possible: false`, and a plausible `register_size`
+
+Unit tests cover verify logic against a local HTTP handler — no live-network dependency on every PR. Run `shared-release:verify` against production manually when the crawl finishes.
+
 ## Architecture
 
 ```mermaid
