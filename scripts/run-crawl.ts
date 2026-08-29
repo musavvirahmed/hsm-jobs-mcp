@@ -1,20 +1,7 @@
-/**
- * Operator CLI for out-of-band Opening refresh / full careers pass.
- * Not used by Worker tool handlers — crawl stays off the request path.
- *
- * Usage:
- *   npm run crawl:smoke            # fixture refresh, no live network
- *   npm run crawl                  # JOBS_INDEX_TARGET local-d1 + live fetch (operator)
- *   npm run crawl:full-pass:smoke  # fixture full careers pass, no live network
- *   npm run crawl:full-pass        # drive remaining KvKs to terminal outcomes
- *
- * Alert hook: prints repeated crawl failures to stderr (cheap free-tier ops).
- */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createAshbyBoardFeedFetcher } from "../src/ashby-board";
-import { createPlaywrightPageGetter } from "../src/browser-harvest";
+import { createProductionCrawlRuntime } from "../src/crawl-runtime";
 import { runFullCareersPass } from "../src/full-careers-pass";
 import {
   DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
@@ -55,33 +42,41 @@ async function main(): Promise<void> {
     await index.setBoardSeed(RENTMAN_ASHBY_BOARD_SEED, now());
   }
 
-  const getPage = smoke ? smokeGetPage() : createHttpsPageGetter(fetch);
-  const fetchBoardFeed = smoke ? smokeFetchBoardFeed() : createAshbyBoardFeedFetcher(fetch);
-  const browser = smoke ? null : await createPlaywrightPageGetter().catch(() => null);
-  const register = createFixtureRegister(
-    [RENTMAN],
-    process.env.CRAWL_REGISTER_AS_OF?.trim() || "2026-08-03",
-  );
-  const providers = {
-    wikidata: { websiteForKvk: async () => null },
-    getPage,
-  };
+  let closeRuntime: (() => Promise<void>) | undefined;
+  const runtime = smoke
+    ? {
+        register: createFixtureRegister(
+          [RENTMAN],
+          process.env.CRAWL_REGISTER_AS_OF?.trim() || "2026-08-03",
+        ),
+        fetchBoardFeed: smokeFetchBoardFeed(),
+        providers: {
+          wikidata: { websiteForKvk: async () => null },
+          getPage: smokeGetPage(),
+        },
+        getBrowserPage: undefined as undefined | ((url: string) => Promise<PageGetResult | null>),
+      }
+    : await (async () => {
+        const production = await createProductionCrawlRuntime({ env: process.env });
+        closeRuntime = production.close;
+        return production;
+      })();
 
   const report = fullPass
     ? await runFullCareersPass({
-        register,
+        register: runtime.register,
         index,
-        fetchBoardFeed,
-        providers,
-        getBrowserPage: browser?.getPage,
+        fetchBoardFeed: runtime.fetchBoardFeed,
+        providers: runtime.providers,
+        getBrowserPage: runtime.getBrowserPage,
         maxAttempts,
       })
     : await runOutOfBandCrawl({
-        register,
+        register: runtime.register,
         index,
-        fetchBoardFeed,
-        providers,
-        getBrowserPage: browser?.getPage,
+        fetchBoardFeed: runtime.fetchBoardFeed,
+        providers: runtime.providers,
+        getBrowserPage: runtime.getBrowserPage,
         alert: async (alert) => {
           console.error(`[crawl-alert] ${alert.kind}: ${alert.message}`);
         },
@@ -115,8 +110,8 @@ async function main(): Promise<void> {
     process.exitCode = 2;
   }
 
-  if (browser) {
-    await browser.close();
+  if (closeRuntime) {
+    await closeRuntime();
   }
 }
 
