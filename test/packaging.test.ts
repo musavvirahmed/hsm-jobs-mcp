@@ -14,6 +14,7 @@ import {
   SHARED_RELEASE_ORIGIN,
   V1_JOBS_TOOLS,
 } from "../src/packaging";
+import { SERVER_CARD_DESCRIPTION } from "../src/server-card";
 
 const readme = readFileSync(resolve(import.meta.dirname, "../README.md"), "utf8");
 const developerReadme = readFileSync(
@@ -115,14 +116,20 @@ test("GET /.well-known/mcp.json serves a server card", async () => {
   expect(response.headers.get("access-control-allow-origin")).toBe("*");
   const card = (await response.json()) as {
     name: string;
+    description: string;
     version: string;
     remotes: Array<{ type: string; url: string }>;
   };
   expect(card.name).toBe(SERVER_NAME);
+  expect(card.description).toBe(SERVER_CARD_DESCRIPTION);
   expect(card.version).toBeTruthy();
   expect(card.remotes).toEqual([
     { type: "streamable-http", url: `${SHARED_RELEASE_ORIGIN}/mcp` },
   ]);
+  const body = JSON.stringify(card);
+  expect(body).not.toContain(HSM_MCP_CLIENT_KEY);
+  expect(body).not.toContain(HSM_MCP_ORIGIN);
+  expect(body).not.toMatch(/hsm-mcp/i);
 });
 
 test("GET /.well-known/mcp/server-card.json mirrors the server card", async () => {
@@ -173,6 +180,8 @@ test("developer README documents operator loop and architecture", () => {
   expect(developerReadme).toContain("private-release-integration.yml");
   expect(developerReadme).toMatch(/```mermaid/);
   expect(developerReadme).toMatch(/\| `GET \/`/);
+  expect(developerReadme).toMatch(/\| `GET \/.well-known\/mcp\.json`/);
+  expect(developerReadme).toMatch(/\| `GET \/.well-known\/mcp\/server-card\.json`/);
   expect(developerReadme).toMatch(/\| `\/mcp` \|/);
   expect(developerReadme).toMatch(/\| `\/health` \|/);
 });
