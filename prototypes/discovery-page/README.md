@@ -20,4 +20,4 @@ Then visit `http://127.0.0.1:8766/?variant=A` (also `B`, `C`). Arrow keys / bott
 
 **Winner:** variant **B** (idea-2 TUI) — shipped in `src/discovery-page.ts`. A/C kept in prototype for contrast.
 
-Copy matches locked packaging (`src/packaging.ts`). Not wired to production `GET /`.
+Copy matches locked packaging (`src/packaging.ts`). Production `GET /` uses variant **B** only; this prototype keeps A/C for contrast.
