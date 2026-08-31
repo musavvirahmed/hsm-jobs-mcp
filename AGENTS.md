@@ -34,8 +34,8 @@ Single-context. Glossary in `CONTEXT.md`. ADRs in `docs/adr/` when `/domain-mode
 
 ## Skills
 
-Editable copies from [mattpocock/skills](https://github.com/mattpocock/skills) (engineering + productivity buckets). Canonical files: `.agents/skills/<name>/SKILL.md`. Symlinked for Cursor (`.cursor/skills/`), Claude Code (`.claude/skills/`), and Codex (`.codex/skills/`).
+Editable copies from [mattpocock/skills](https://github.com/mattpocock/skills) (engineering + productivity buckets) are **local only** (gitignored). Canonical files: `.agents/skills/<name>/SKILL.md`. Symlinked for Cursor (`.cursor/skills/`), Claude Code (`.claude/skills/`), and Codex (`.codex/skills/`). Not shipped in the public clone — run `/setup-matt-pocock-skills` once after clone if the trees are missing; do not re-run unless switching trackers.
 
-Invoke `/wayfinder` to chart or walk the map. Tracker wiring already lives in `docs/agents/`. Do not re-run `/setup-matt-pocock-skills` unless switching trackers.
+Invoke `/wayfinder` to chart or walk the map. Tracker wiring already lives in `docs/agents/`.
 
 Research findings: `research/<ticket-slug>.md` on a `research/<ticket-slug>` branch.

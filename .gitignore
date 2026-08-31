@@ -10,6 +10,10 @@ recognised-sponsors/cache/
 tmp/
 dist/
 .cursor/plans/
+.agents/skills/
+.claude/skills/
+.codex/skills/
+.cursor/skills/
 *.code-workspace
 vendor/
 .wrangler/
