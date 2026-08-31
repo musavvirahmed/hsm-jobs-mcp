@@ -9,6 +9,7 @@ import {
   EXAMPLE_ASKS,
   HSM_MCP_CLIENT_KEY,
   HSM_MCP_ORIGIN,
+  IND_HSM_PERMIT_URL,
   READING_THE_ANSWERS_GIST,
   SERVER_NAME,
   SHARED_RELEASE_ORIGIN,
@@ -102,7 +103,13 @@ test("GET / uses TUI discovery chrome (variant B winner)", async () => {
   const html = await response.text();
   expect(html).toContain('class="tui-header"');
   expect(html).toContain('class="tui-box"');
-  expect(html).toContain("data-title=\"Connect (Streamable HTTP)\"");
+  expect(html).toContain('data-title="Connect"');
+  expect(html).toContain('data-title="Then just ask"');
+  expect(html).toContain('data-title="What the answers mean"');
+  expect(html).toContain('data-title="How fresh is this?"');
+  expect(html).toContain("tui-box--muted");
+  expect(html).toContain("finite number of companies");
+  expect(html).toContain(IND_HSM_PERMIT_URL);
 });
 
 test("GET /.well-known/mcp.json serves a server card", async () => {
