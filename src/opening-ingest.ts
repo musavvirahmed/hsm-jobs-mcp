@@ -241,16 +241,37 @@ export async function ingestExtractionLadder(opts: {
   for (let i = 0; i < register.sponsors.length; i += 1) {
     const sponsor = register.sponsors[i]!;
     progress(`ladder ${i + 1}/${total}: KvK ${sponsor.kvk}`);
-    const result = await ingestLadderForSponsor({
-      sponsor,
-      index: opts.index,
-      fetchBoardFeed: opts.fetchBoardFeed,
-      getPage: opts.getPage,
-      getBrowserPage: opts.getBrowserPage,
-      stamp,
-    });
-    results.push(result);
-    if (result.status === "indexed") anySuccess = true;
+    try {
+      const result = await ingestLadderForSponsor({
+        sponsor,
+        index: opts.index,
+        fetchBoardFeed: opts.fetchBoardFeed,
+        getPage: opts.getPage,
+        getBrowserPage: opts.getBrowserPage,
+        stamp,
+      });
+      results.push(result);
+      if (result.status === "indexed") anySuccess = true;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      progress(`ladder ${i + 1}/${total}: KvK ${sponsor.kvk} failed — recording blocked (${detail})`);
+      const officialHost = await opts.index.getOfficialWebsite(sponsor.kvk);
+      await opts.index.recordTerminalOutcome({
+        kvk: sponsor.kvk,
+        outcome: "blocked",
+        official_website_host: officialHost,
+        now: stamp,
+      });
+      results.push({
+        kvk: sponsor.kvk,
+        status: "blocked",
+        ats_family: null,
+        board_token: null,
+        openings_written: 0,
+        openings_removed: 0,
+        via: null,
+      });
+    }
   }
 
   if (opts.updateRegisterMeta !== false) {

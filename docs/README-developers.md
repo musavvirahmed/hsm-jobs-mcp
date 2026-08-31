@@ -145,6 +145,57 @@ The pass is complete when `missing_terminal_outcomes_after` is `0` and `index_sc
 After a **register refresh**, any new KvK without a terminal outcome forces status back to `partial`.
 Catch-up uses the same stop/resume commands.
 
+### Unattended loop (local Mac)
+
+Use this when you want capped batches to keep running overnight without restarting by hand.
+Run **only one** loop at a time. Two loops writing the same remote D1 fight each other.
+
+1. Start (or reopen) a tmux session, then run the loop.
+
+If `tmux` is missing: `brew install tmux`. Or skip tmux and run `./scripts/full-pass-loop.sh` in a terminal you leave open (`caffeinate` still keeps the Mac awake).
+
+```bash
+tmux new -s crawl
+./scripts/full-pass-loop.sh
+```
+
+If you see `duplicate session: crawl`, the session already exists — do **not** create another. Reattach:
+
+```bash
+tmux attach -t crawl
+```
+
+If that session is idle after a kill, run `./scripts/full-pass-loop.sh` again inside it. To start clean instead:
+
+```bash
+tmux kill-session -t crawl
+tmux new -s crawl
+./scripts/full-pass-loop.sh
+```
+
+2. Detach with `Ctrl+b` then `d`. Reattach later with `tmux attach -t crawl`.
+3. Stop safely with `Ctrl+C` in the session, or `tmux kill-session -t crawl`. Outcomes already written to remote D1 are kept.
+4. Confirm a single crawl is running: `pgrep -fl 'full-pass-loop|run-crawl'` should show one loop (plus `caffeinate`) and one `run-crawl` / `tsx` pair.
+5. Logs go to `.scratch/full-pass-logs/` (gitignored). `[crawl]` progress lines stream live on stderr while each batch runs (also appended to the log).
+
+Defaults: `CRAWL_MAX_ATTEMPTS=200`, 30s pause between successful batches, 120s backoff after a failed run, abort after 10 consecutive failures. The script wraps itself in `caffeinate -is` on macOS so sleep does not pause the crawl.
+
+| Env | Default | Meaning |
+| --- | ------- | ------- |
+| `FULL_PASS_LOOP_BATCH` | `200` | Passed as `CRAWL_MAX_ATTEMPTS` |
+| `FULL_PASS_LOOP_PAUSE` | `30` | Seconds between successful batches |
+| `FULL_PASS_LOOP_FAIL_BACKOFF` | `120` | Seconds after a non-zero crawl exit |
+| `FULL_PASS_LOOP_MAX_CONSEC_FAILS` | `10` | Abort threshold for consecutive failures |
+| `JOBS_INDEX_TARGET` | `remote-d1` | Production writes (set only if you need another target) |
+
+When `missing_terminal_outcomes_after` is `0`, the loop prints a completion banner and exits. Then run `npm run shared-release:verify` yourself.
+
+Smoke dry-run (fixture register, no remote D1):
+
+```bash
+CRAWL_SMOKE=1 FULL_PASS_LOOP_BATCH=1 FULL_PASS_LOOP_PAUSE=0 ./scripts/full-pass-loop.sh
+```
+
 ### Shared-release verify
 
 After the production **full careers pass** completes on remote D1, verify the public origin before you point MCP clients at it:

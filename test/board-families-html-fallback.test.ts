@@ -482,6 +482,63 @@ test("board ingest re-keys an HTML-only Opening that already owns the careers UR
   });
 });
 
+test("extraction ladder records blocked and continues when one sponsor throws", async () => {
+  const boom = { kvk: "55556666", name: "Boom Careers B.V." };
+  const ok = { kvk: "77778888", name: "Ok Static B.V." };
+  const index = createEmptyWritableJobsIndex();
+  await index.recordWebsiteResolution({
+    kvk: boom.kvk,
+    official_website_host: "boom.example",
+    now: NOW,
+  });
+  await index.recordWebsiteResolution({
+    kvk: ok.kvk,
+    official_website_host: "ok.example",
+    now: NOW,
+  });
+
+  const report = await ingestExtractionLadder({
+    register: createFixtureRegister([boom, ok], "2026-08-03"),
+    index,
+    fetchBoardFeed: async () => ({ ok: false, status: 404 }),
+    getPage: async (url) => {
+      if (url.includes("boom.example")) {
+        throw new Error("simulated sponsor failure");
+      }
+      if (url === "https://ok.example/" || url === "https://ok.example/jobs") {
+        return {
+          status: 200,
+          finalUrl: url,
+          tlsValid: true,
+          bodyText:
+            '<html><body><h1>Ok Static B.V.</h1><a href="/jobs/designer">Product Designer</a></body></html>',
+        };
+      }
+      if (url.includes("ok.example/jobs/designer")) {
+        return {
+          status: 200,
+          finalUrl: url,
+          tlsValid: true,
+          bodyText: "<html><body><h1>Product Designer</h1><p>Utrecht</p></body></html>",
+        };
+      }
+      return {
+        status: 200,
+        finalUrl: url,
+        tlsValid: true,
+        bodyText: "<html><body><h1>Ok Static B.V.</h1></body></html>",
+      };
+    },
+    now: () => NOW,
+  });
+
+  expect(report.results).toHaveLength(2);
+  expect(report.results[0]).toMatchObject({ kvk: boom.kvk, status: "blocked" });
+  expect(await index.getTerminalOutcome(boom.kvk)).toMatchObject({ outcome: "blocked" });
+  expect(report.results[1]?.status).toBe("indexed");
+  expect(await index.getTerminalOutcome(ok.kvk)).toMatchObject({ outcome: "openings_indexed" });
+});
+
 type FakePage = {
   status?: number;
   redirectTo?: string;
