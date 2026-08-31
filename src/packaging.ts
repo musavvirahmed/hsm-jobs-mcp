@@ -5,6 +5,11 @@ export const HSM_MCP_ORIGIN = "https://hsm.codealan.com";
 export const CLIENT_KEY = "hsm-jobs";
 export const HSM_MCP_CLIENT_KEY = "ind-sponsors";
 export const SERVER_NAME = "hsm-jobs-mcp";
+/** Plain-text shared-release WIP marker beside the public `/mcp` URL until unlock. */
+export const SHARED_RELEASE_WIP_MARKER = "coming soon";
+/** GitHub repository About (sidebar description). */
+export const GITHUB_ABOUT =
+  "MCP server to quickly find latest job openings by IND recognised sponsors. Especially helpful if you are tired of linkedin job browsing and messing with ghost job openings.";
 
 export const V1_JOBS_TOOLS = [
   {

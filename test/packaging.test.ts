@@ -7,11 +7,13 @@ import { handleRequest } from "../src/http";
 import {
   CLIENT_KEY,
   EXAMPLE_ASKS,
+  GITHUB_ABOUT,
   HSM_MCP_CLIENT_KEY,
   HSM_MCP_ORIGIN,
   READING_THE_ANSWERS_GIST,
   SERVER_NAME,
   SHARED_RELEASE_ORIGIN,
+  SHARED_RELEASE_WIP_MARKER,
   V1_JOBS_TOOLS,
 } from "../src/packaging";
 import { SERVER_CARD_DESCRIPTION } from "../src/server-card";
@@ -49,6 +51,7 @@ test("GET / documents connect with hsm-jobs and required hsm-mcp pairing", async
   const html = await response.text();
   expect(html).toContain(CLIENT_KEY);
   expect(html).toContain(`${SHARED_RELEASE_ORIGIN}/mcp`);
+  expect(html).toContain(SHARED_RELEASE_WIP_MARKER);
   expect(html).toContain(HSM_MCP_CLIENT_KEY);
   expect(html).toContain(HSM_MCP_ORIGIN);
   expect(html).toMatch(/streamable http/i);
@@ -147,7 +150,8 @@ test("GET /.well-known/mcp/server-card.json mirrors the server card", async () =
 
 test("README is a human-first product README", () => {
   expect(readme).toContain(SERVER_NAME);
-  expect(readme).toContain(SHARED_RELEASE_ORIGIN);
+  expect(readme).toContain(`${SHARED_RELEASE_ORIGIN}/mcp`);
+  expect(readme).toContain(SHARED_RELEASE_WIP_MARKER);
   expect(readme).toContain(CLIENT_KEY);
   expect(readme).toContain(HSM_MCP_CLIENT_KEY);
   expect(readme).not.toMatch(/plan,\s*don.?t do/i);
@@ -157,15 +161,28 @@ test("README is a human-first product README", () => {
     expect(readme).toContain(tool.name);
   }
   expect(readme).toMatch(/how to read the answers/i);
-  expect(readme).toMatch(/try it on your computer/i);
-  expect(readme).toMatch(/git clone/i);
-  expect(readme).toMatch(/node --version/);
+  expect(readme).toMatch(/## Use/i);
+  expect(readme).toMatch(/## Architecture/i);
+  expect(readme).toMatch(/```mermaid/);
+  expect(readme).toMatch(/\| `GET \/`/);
+  expect(readme).toMatch(/\| `\/mcp` \|/);
+  expect(readme).toMatch(/\| `\/health` \|/);
+  expect(readme).toMatch(/## Local \/ private release/i);
+  expect(readme).toMatch(/git clone/);
   expect(readme).toMatch(/npm run crawl/);
-  expect(readme).toMatch(/private-release:verify/);
+  expect(readme).toMatch(/npm run dev/);
   expect(readme).toContain("http://127.0.0.1:8787/mcp");
   expect(readme).toContain("docs/README-developers.md");
-  expect(readme).toMatch(/open folder/i);
   expect(readme).toMatch(/get_index_status/);
+  expect(readme).not.toMatch(/node --version/);
+  expect(readme).not.toMatch(/open folder/i);
+  expect(readme).not.toMatch(/private-release:verify/);
+});
+
+test("packaging module locks GitHub About copy", () => {
+  expect(GITHUB_ABOUT).toContain("IND recognised sponsors");
+  expect(GITHUB_ABOUT.length).toBeGreaterThan(40);
+  expect(GITHUB_ABOUT.length).toBeLessThanOrEqual(350);
 });
 
 test("developer README documents operator loop and architecture", () => {
