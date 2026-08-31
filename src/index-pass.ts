@@ -16,13 +16,10 @@ export async function listMissingTerminalOutcomeKvks(
   index: WritableJobsIndex,
   sponsors: RegisterSponsor[],
 ): Promise<string[]> {
-  const missing: string[] = [];
-  for (const sponsor of sponsors) {
-    if (!(await index.getTerminalOutcome(sponsor.kvk))) {
-      missing.push(sponsor.kvk);
-    }
-  }
-  return missing;
+  // One bulk read — per-KvK getTerminalOutcome is ~300ms+ on remote D1 and
+  // stalls a 12k register scan for an hour with no progress lines.
+  const done = new Set(await index.listTerminalOutcomeKvks());
+  return sponsors.filter((sponsor) => !done.has(sponsor.kvk)).map((sponsor) => sponsor.kvk);
 }
 
 /**

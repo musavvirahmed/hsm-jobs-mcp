@@ -204,6 +204,10 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .first<OfficialWebsiteRow>();
       return row?.host ?? null;
     },
+    async listOfficialWebsiteKvks() {
+      const result = await db.prepare("SELECT kvk FROM official_websites").all<{ kvk: string }>();
+      return result.results.map((row) => row.kvk);
+    },
     async getTerminalOutcome(kvk) {
       const row = await db
         .prepare(
@@ -213,6 +217,12 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .bind(kvk)
         .first<OutcomeRow>();
       return row ?? null;
+    },
+    async listTerminalOutcomeKvks() {
+      const result = await db
+        .prepare("SELECT kvk FROM terminal_careers_outcomes")
+        .all<{ kvk: string }>();
+      return result.results.map((row) => row.kvk);
     },
     async recordTerminalOutcome(input) {
       await db

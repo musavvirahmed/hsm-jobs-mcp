@@ -55,7 +55,9 @@ export async function runFullCareersPass(opts: {
     register_as_of: register.asOf,
   });
 
+  progress("scanning terminal outcomes (bulk)…");
   const missingBefore = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
+  progress(`missing terminal outcomes: ${missingBefore.length}`);
   let rePartialed = false;
   if (missingBefore.length > 0) {
     await opts.index.setPass("partial");
@@ -73,12 +75,8 @@ export async function runFullCareersPass(opts: {
   let ladderIngest: LadderIngestReport | null = null;
 
   if (batch.length > 0) {
-    const needWebsite: string[] = [];
-    for (const kvk of batch) {
-      if (!(await opts.index.getOfficialWebsite(kvk))) {
-        needWebsite.push(kvk);
-      }
-    }
+    const haveWebsite = new Set(await opts.index.listOfficialWebsiteKvks());
+    const needWebsite = batch.filter((kvk) => !haveWebsite.has(kvk));
     if (needWebsite.length > 0) {
       progress(`website resolution: ${needWebsite.length} KvKs`);
       websiteIngest = await ingestWebsiteResolutions({
@@ -92,12 +90,11 @@ export async function runFullCareersPass(opts: {
       progress(`website resolution done`);
     }
 
-    const stillMissing: string[] = [];
-    for (const kvk of batch) {
-      if (!(await opts.index.getTerminalOutcome(kvk)) && (await opts.index.getOfficialWebsite(kvk))) {
-        stillMissing.push(kvk);
-      }
-    }
+    const haveOutcome = new Set(await opts.index.listTerminalOutcomeKvks());
+    const haveWebsiteAfter = new Set(await opts.index.listOfficialWebsiteKvks());
+    const stillMissing = batch.filter(
+      (kvk) => !haveOutcome.has(kvk) && haveWebsiteAfter.has(kvk),
+    );
     if (stillMissing.length > 0) {
       progress(`extraction ladder: ${stillMissing.length} KvKs`);
       ladderIngest = await ingestExtractionLadder({

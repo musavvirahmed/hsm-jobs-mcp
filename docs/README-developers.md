@@ -119,7 +119,7 @@ CRAWL_MAX_ATTEMPTS=200 JOBS_INDEX_TARGET=remote-d1 npm run crawl:full-pass
 
 3. **Stop** safely — send SIGINT (Ctrl+C) or kill the process. Outcomes already written to remote D1 are kept.
 
-4. **Watch live progress** — while a batch runs, the CLI prints `[crawl] …` lines on stderr (register load, each website/ladder KvK). Network fetches time out after 20 seconds. One stuck host must not freeze the batch forever. If D1 `terminal_careers_outcomes` count stays flat for many minutes with no new `[crawl]` lines, stop and investigate.
+4. **Watch live progress** — while a batch runs, the CLI prints `[crawl] …` lines on stderr (register load, bulk missing scan, each website/ladder KvK). After `register loaded`, expect `scanning terminal outcomes (bulk)…` then `batch:` within seconds — not minutes. Network fetches time out after 20 seconds. One stuck host must not freeze the batch forever. If D1 `terminal_careers_outcomes` count stays flat for many minutes with no new `[crawl]` lines, stop and investigate.
 
 5. **Resume** — re-run the same command. The runner skips KvKs that already have a **terminal careers outcome**. It only attempts missing KvKs.
 
@@ -127,11 +127,18 @@ CRAWL_MAX_ATTEMPTS=200 JOBS_INDEX_TARGET=remote-d1 npm run crawl:full-pass
 
 | Field | Meaning |
 | ----- | ------- |
+| `full_pass` | Runner mode (`crawl:full-pass`). **Not** completion — see `index_scope.pass` |
 | `missing_terminal_outcomes_before` | Current-register KvKs still lacking a terminal outcome at start |
 | `attempted` | How many missing KvKs this invocation tried (respects `CRAWL_MAX_ATTEMPTS`) |
 | `missing_terminal_outcomes_after` | Remaining missing KvKs after this run |
 | `index_scope.pass` | `partial` until every current-register KvK has a terminal outcome; then `full_careers_pass` |
+| `index_scope.register_size` | Full current register size (should be ~full Work register, not the batch cap) |
+| `index_scope.sponsors_attempted` | KvKs with a terminal outcome and/or official website so far |
 | `jobs_index_target` | Confirms `remote-d1` for production writes |
+
+A healthy capped batch drops missing by about `attempted` (e.g. 12741 → 12541 when `attempted` is 200).
+`pass` stays `partial` until missing hits 0 — that is expected mid-run.
+After `register loaded`, expect `scanning terminal outcomes (bulk)…` within seconds; a long silence there is a bug, not normal work.
 
 The pass is complete when `missing_terminal_outcomes_after` is `0` and `index_scope.pass` is `full_careers_pass`.
 

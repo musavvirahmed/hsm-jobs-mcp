@@ -94,12 +94,8 @@ export async function runOutOfBandCrawl(opts: {
     });
 
     const afterWebsite = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
-    const withWebsite = [];
-    for (const kvk of afterWebsite) {
-      if (await opts.index.getOfficialWebsite(kvk)) {
-        withWebsite.push(kvk);
-      }
-    }
+    const haveWebsite = new Set(await opts.index.listOfficialWebsiteKvks());
+    const withWebsite = afterWebsite.filter((kvk) => haveWebsite.has(kvk));
     if (withWebsite.length > 0) {
       ladderIngest = await ingestExtractionLadder({
         register: createRegisterFromSponsors(register.sponsors, register.asOf, new Set(withWebsite)),

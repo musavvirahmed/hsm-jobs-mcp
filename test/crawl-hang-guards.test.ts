@@ -59,6 +59,40 @@ test("full careers pass emits progress lines for register load and batch phases"
   });
   expect(lines.some((line) => /loading register/i.test(line))).toBe(true);
   expect(lines.some((line) => /register loaded/i.test(line))).toBe(true);
+  expect(lines.some((line) => /scanning terminal outcomes/i.test(line))).toBe(true);
   expect(lines.some((line) => /batch/i.test(line))).toBe(true);
   expect(lines.some((line) => /done|complete|finished/i.test(line))).toBe(true);
+});
+
+test("listMissingTerminalOutcomeKvks uses bulk list, not per-KvK lookups", async () => {
+  const { listMissingTerminalOutcomeKvks } = await import("../src/index-pass");
+  const index = createEmptyWritableJobsIndex();
+  await index.recordTerminalOutcome({
+    kvk: "00000001",
+    outcome: "unresolved_website",
+    official_website_host: null,
+    now: NOW,
+  });
+
+  let perKvkLookups = 0;
+  const wrapped = new Proxy(index, {
+    get(target, prop, receiver) {
+      if (prop === "getTerminalOutcome") {
+        return async (kvk: string) => {
+          perKvkLookups += 1;
+          return target.getTerminalOutcome(kvk);
+        };
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+
+  const sponsors = Array.from({ length: 400 }, (_, i) => ({
+    kvk: String(i + 1).padStart(8, "0"),
+    name: `Sponsor ${i + 1}`,
+  }));
+  const missing = await listMissingTerminalOutcomeKvks(wrapped, sponsors);
+  expect(perKvkLookups).toBe(0);
+  expect(missing).toHaveLength(399);
+  expect(missing).not.toContain("00000001");
 });

@@ -98,7 +98,11 @@ export interface WritableJobsIndex extends JobsIndex {
     replaceClosed?: boolean;
   }): Promise<void>;
   getOfficialWebsite(kvk: string): Promise<string | null>;
+  /** Bulk read for full-pass missing scans (avoid per-KvK remote D1 round-trips). */
+  listOfficialWebsiteKvks(): Promise<string[]>;
   getTerminalOutcome(kvk: string): Promise<TerminalCareersOutcome | null>;
+  /** Bulk read for full-pass missing scans (avoid per-KvK remote D1 round-trips). */
+  listTerminalOutcomeKvks(): Promise<string[]>;
   recordTerminalOutcome(input: {
     kvk: string;
     outcome: TerminalCareersOutcomeKind;
