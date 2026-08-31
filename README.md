@@ -24,15 +24,10 @@ You need a copy of this project on your computer.
 
 **Option A — clone (recommended)**
 
-This repo is **private**. Sign in to GitHub on the new machine before you clone.
-
 ```bash
-gh auth login
 git clone https://github.com/musavvirahmed/hsm-jobs-mcp.git
 cd hsm-jobs-mcp
 ```
-
-If you do not use `gh`, use HTTPS clone and enter a GitHub username plus a [personal access token](https://github.com/settings/tokens) when Git asks for a password.
 
 **Option B — download without git**
 
