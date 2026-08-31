@@ -8,6 +8,7 @@ import { createStubHsmMcp } from "../src/hsm-mcp";
 import { createJobsMcpServer } from "../src/mcp-server";
 import {
   ingestExtractionLadder,
+  ingestOpening,
   type BoardFeedResponse,
 } from "../src/opening-ingest";
 import { createFixtureRegister } from "../src/register-source";
@@ -352,6 +353,190 @@ test("robots soft-ignore allows job-like Disallows but keeps unrelated Disallows
   expect(searched.structuredContent).toMatchObject({
     openings: [{ title: "UX Designer", source_class: "careers_site" }],
   });
+});
+
+test("two board postings with the same title keep distinct primary_urls (no UNIQUE crash)", async () => {
+  const index = createEmptyWritableJobsIndex();
+  await index.recordWebsiteResolution({
+    kvk: ACME.kvk,
+    official_website_host: "acme.example",
+    now: NOW,
+  });
+  await index.setBoardSeed(
+    {
+      kvk: ACME.kvk,
+      ats_family: "greenhouse",
+      board_token: "acme",
+      public_board_feed_url: GREENHOUSE_ACME_FEED,
+    },
+    NOW,
+  );
+
+  const amsterdamUrl = "https://boards.greenhouse.io/acme/jobs/4002001";
+  const utrechtUrl = "https://boards.greenhouse.io/acme/jobs/4002002";
+  const careersSlug = "https://acme.example/jobs/software-engineer";
+
+  await ingestExtractionLadder({
+    register: createFixtureRegister([ACME], "2026-08-03"),
+    index,
+    fetchBoardFeed: async (url) => {
+      if (url !== GREENHOUSE_ACME_FEED) return { ok: false, status: 404 };
+      return {
+        ok: true,
+        status: 200,
+        body: JSON.stringify({
+          jobs: [
+            {
+              id: 4002001,
+              title: "Software Engineer",
+              location: { name: "Amsterdam" },
+              absolute_url: amsterdamUrl,
+              content: "<p>Amsterdam role.</p>",
+            },
+            {
+              id: 4002002,
+              title: "Software Engineer",
+              location: { name: "Utrecht" },
+              absolute_url: utrechtUrl,
+              content: "<p>Utrecht role.</p>",
+            },
+          ],
+        }),
+      };
+    },
+    getPage: fakeGetPage({
+      [careersSlug]: {
+        bodyText: "<html><body><h1>Software Engineer</h1></body></html>",
+      },
+    }),
+    now: () => NOW,
+  });
+
+  const openings = await index.listOpeningsByKvk(ACME.kvk);
+  expect(openings).toHaveLength(2);
+  const urls = openings.map((opening) => opening.primary_url).sort();
+  expect(new Set(urls).size).toBe(2);
+  expect(urls).toContain(careersSlug);
+  expect(urls).toContain(utrechtUrl);
+});
+
+test("board ingest re-keys an HTML-only Opening that already owns the careers URL", async () => {
+  const index = createEmptyWritableJobsIndex();
+  await index.recordWebsiteResolution({
+    kvk: ACME.kvk,
+    official_website_host: "acme.example",
+    now: NOW,
+  });
+  await ingestOpening(index, {
+    identity: `careers_url:${PRODUCT_DESIGNER_CAREERS}`,
+    primary_url: PRODUCT_DESIGNER_CAREERS,
+    careers_url: PRODUCT_DESIGNER_CAREERS,
+    ats_url: null,
+    title: "Product Designer",
+    location: "Amsterdam",
+    jd_extract: "Design product experiences.",
+    source_class: "careers_site",
+    register_name: ACME.name,
+    register_kvk: ACME.kvk,
+    register_join_strength: "exact_kvk",
+    ats_family: null,
+    board_token: null,
+    posting_id: null,
+  });
+  await index.setBoardSeed(
+    {
+      kvk: ACME.kvk,
+      ats_family: "greenhouse",
+      board_token: "acme",
+      public_board_feed_url: GREENHOUSE_ACME_FEED,
+    },
+    NOW,
+  );
+
+  await ingestExtractionLadder({
+    register: createFixtureRegister([ACME], "2026-08-03"),
+    index,
+    fetchBoardFeed: async (url) => {
+      if (url !== GREENHOUSE_ACME_FEED) return { ok: false, status: 404 };
+      return { ok: true, status: 200, body: RECORDED_GREENHOUSE };
+    },
+    getPage: fakeGetPage({
+      [PRODUCT_DESIGNER_CAREERS]: {
+        bodyText: "<html><body><h1>Product Designer</h1></body></html>",
+      },
+      "https://acme.example/jobs/frontend-engineer": {
+        bodyText: "<html><body><h1>Frontend Engineer</h1></body></html>",
+      },
+    }),
+    now: () => NOW,
+  });
+
+  const openings = await index.listOpeningsByKvk(ACME.kvk);
+  expect(openings.map((opening) => opening.identity).sort()).toEqual([
+    "greenhouse:acme:4001001",
+    "greenhouse:acme:4001002",
+  ]);
+  expect(await index.getOpening(PRODUCT_DESIGNER_CAREERS)).toMatchObject({
+    identity: "greenhouse:acme:4001001",
+    source_class: "ats_board",
+  });
+});
+
+test("extraction ladder records blocked and continues when one sponsor throws", async () => {
+  const boom = { kvk: "55556666", name: "Boom Careers B.V." };
+  const ok = { kvk: "77778888", name: "Ok Static B.V." };
+  const index = createEmptyWritableJobsIndex();
+  await index.recordWebsiteResolution({
+    kvk: boom.kvk,
+    official_website_host: "boom.example",
+    now: NOW,
+  });
+  await index.recordWebsiteResolution({
+    kvk: ok.kvk,
+    official_website_host: "ok.example",
+    now: NOW,
+  });
+
+  const report = await ingestExtractionLadder({
+    register: createFixtureRegister([boom, ok], "2026-08-03"),
+    index,
+    fetchBoardFeed: async () => ({ ok: false, status: 404 }),
+    getPage: async (url) => {
+      if (url.includes("boom.example")) {
+        throw new Error("simulated sponsor failure");
+      }
+      if (url === "https://ok.example/" || url === "https://ok.example/jobs") {
+        return {
+          status: 200,
+          finalUrl: url,
+          tlsValid: true,
+          bodyText:
+            '<html><body><h1>Ok Static B.V.</h1><a href="/jobs/designer">Product Designer</a></body></html>',
+        };
+      }
+      if (url.includes("ok.example/jobs/designer")) {
+        return {
+          status: 200,
+          finalUrl: url,
+          tlsValid: true,
+          bodyText: "<html><body><h1>Product Designer</h1><p>Utrecht</p></body></html>",
+        };
+      }
+      return {
+        status: 200,
+        finalUrl: url,
+        tlsValid: true,
+        bodyText: "<html><body><h1>Ok Static B.V.</h1></body></html>",
+      };
+    },
+    now: () => NOW,
+  });
+
+  expect(report.results).toHaveLength(2);
+  expect(report.results[0]).toMatchObject({ kvk: boom.kvk, status: "blocked" });
+  expect(await index.getTerminalOutcome(boom.kvk)).toMatchObject({ outcome: "blocked" });
+  expect(report.results[1]?.status).toBe("indexed");
+  expect(await index.getTerminalOutcome(ok.kvk)).toMatchObject({ outcome: "openings_indexed" });
 });
 
 type FakePage = {

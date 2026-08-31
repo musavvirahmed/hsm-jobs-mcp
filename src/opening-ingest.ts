@@ -84,13 +84,20 @@ export async function ingestWebsiteResolutions(opts: {
   index: WritableJobsIndex;
   providers: WebsiteResolutionProviders;
   now?: () => string;
+  onProgress?: (line: string) => void;
+  /** When false, leave index register_meta alone (full-pass already set full register size). */
+  updateRegisterMeta?: boolean;
 }): Promise<WebsiteIngestReport> {
   const now = opts.now ?? (() => new Date().toISOString());
+  const progress = opts.onProgress ?? (() => {});
   const stamp = now();
   const register = await opts.register.load();
   const results: WebsiteIngestResult[] = [];
+  const total = register.sponsors.length;
 
-  for (const sponsor of register.sponsors) {
+  for (let i = 0; i < register.sponsors.length; i += 1) {
+    const sponsor = register.sponsors[i]!;
+    progress(`website ${i + 1}/${total}: KvK ${sponsor.kvk}`);
     const override = await opts.index.getWebsiteOverride(sponsor.kvk);
     const previousHost = await opts.index.getOfficialWebsite(sponsor.kvk);
     const resolved = await resolveOfficialWebsite(sponsor, opts.providers, override);
@@ -112,10 +119,12 @@ export async function ingestWebsiteResolutions(opts: {
     });
   }
 
-  await opts.index.setRegisterMeta({
-    register_size: register.sponsors.length,
-    register_as_of: register.asOf,
-  });
+  if (opts.updateRegisterMeta !== false) {
+    await opts.index.setRegisterMeta({
+      register_size: register.sponsors.length,
+      register_as_of: register.asOf,
+    });
+  }
 
   return { results };
 }
@@ -213,34 +222,64 @@ export async function ingestExtractionLadder(opts: {
   getBrowserPage?: WebsiteResolutionProviders["getPage"];
   now?: () => string;
   invalidateBoardGuessesFor?: string[];
+  onProgress?: (line: string) => void;
+  /** When false, leave index register_meta alone (full-pass already set full register size). */
+  updateRegisterMeta?: boolean;
 }): Promise<LadderIngestReport> {
   const now = opts.now ?? (() => new Date().toISOString());
+  const progress = opts.onProgress ?? (() => {});
   const stamp = now();
   const register = await opts.register.load();
   const results: LadderIngestResult[] = [];
   let anySuccess = false;
+  const total = register.sponsors.length;
 
   for (const kvk of opts.invalidateBoardGuessesFor ?? []) {
     await opts.index.clearBoardGuessMisses(kvk);
   }
 
-  for (const sponsor of register.sponsors) {
-    const result = await ingestLadderForSponsor({
-      sponsor,
-      index: opts.index,
-      fetchBoardFeed: opts.fetchBoardFeed,
-      getPage: opts.getPage,
-      getBrowserPage: opts.getBrowserPage,
-      stamp,
-    });
-    results.push(result);
-    if (result.status === "indexed") anySuccess = true;
+  for (let i = 0; i < register.sponsors.length; i += 1) {
+    const sponsor = register.sponsors[i]!;
+    progress(`ladder ${i + 1}/${total}: KvK ${sponsor.kvk}`);
+    try {
+      const result = await ingestLadderForSponsor({
+        sponsor,
+        index: opts.index,
+        fetchBoardFeed: opts.fetchBoardFeed,
+        getPage: opts.getPage,
+        getBrowserPage: opts.getBrowserPage,
+        stamp,
+      });
+      results.push(result);
+      if (result.status === "indexed") anySuccess = true;
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      progress(`ladder ${i + 1}/${total}: KvK ${sponsor.kvk} failed — recording blocked (${detail})`);
+      const officialHost = await opts.index.getOfficialWebsite(sponsor.kvk);
+      await opts.index.recordTerminalOutcome({
+        kvk: sponsor.kvk,
+        outcome: "blocked",
+        official_website_host: officialHost,
+        now: stamp,
+      });
+      results.push({
+        kvk: sponsor.kvk,
+        status: "blocked",
+        ats_family: null,
+        board_token: null,
+        openings_written: 0,
+        openings_removed: 0,
+        via: null,
+      });
+    }
   }
 
-  await opts.index.setRegisterMeta({
-    register_size: register.sponsors.length,
-    register_as_of: register.asOf,
-  });
+  if (opts.updateRegisterMeta !== false) {
+    await opts.index.setRegisterMeta({
+      register_size: register.sponsors.length,
+      register_as_of: register.asOf,
+    });
+  }
   if (anySuccess) {
     await opts.index.setLastSuccessfulCrawl(stamp);
   }
@@ -552,17 +591,26 @@ async function writeBoardJobs(opts: {
   const seen = new Set<string>();
   let written = 0;
 
+  const claimedPrimary = new Set<string>();
   for (const job of opts.jobs) {
     const identity = `${opts.family}:${opts.boardToken}:${job.id}`;
     seen.add(identity);
     const careersUrl = opts.officialHost
       ? await careersUrlIfLive(opts.officialHost, job.title, opts.getPage)
       : null;
-    const primaryUrl = careersUrl ?? job.jobUrl;
+    const primaryUrl = await chooseUniquePrimaryUrl({
+      index: opts.index,
+      claimed: claimedPrimary,
+      identity,
+      preferred: careersUrl ?? job.jobUrl,
+      fallback: job.jobUrl,
+    });
+    if (!primaryUrl) continue;
+    claimedPrimary.add(primaryUrl);
     await ingestOpening(opts.index, {
       identity,
       primary_url: primaryUrl,
-      careers_url: careersUrl,
+      careers_url: primaryUrl === careersUrl ? careersUrl : null,
       ats_url: job.jobUrl,
       title: job.title,
       location: job.location,
@@ -784,6 +832,32 @@ function registerJoinAtIndexTime(
     return { name: sponsor.name, kvk: sponsor.kvk, strength: "exact_kvk" };
   }
   return { name: null, kvk: null, strength: "unmatched" };
+}
+
+/**
+ * `openings.primary_url` is UNIQUE. Identity is ATS family + board token + posting id,
+ * so two postings can prefer the same careers slug (same title). Use the ATS URL
+ * when the preferred URL is already claimed. Re-key HTML-only rows that used
+ * `careers_url:…` identity for this URL.
+ */
+async function chooseUniquePrimaryUrl(opts: {
+  index: WritableJobsIndex;
+  claimed: Set<string>;
+  identity: string;
+  preferred: string;
+  fallback: string;
+}): Promise<string | null> {
+  const candidates = opts.preferred === opts.fallback ? [opts.preferred] : [opts.preferred, opts.fallback];
+  for (const url of candidates) {
+    if (opts.claimed.has(url)) continue;
+    const existing = await opts.index.getOpening(url);
+    if (!existing || existing.identity === opts.identity) return url;
+    if (existing.identity === `careers_url:${url}`) {
+      await opts.index.removeOpening(existing.identity);
+      return url;
+    }
+  }
+  return null;
 }
 
 async function careersUrlIfLive(

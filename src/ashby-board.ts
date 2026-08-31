@@ -1,3 +1,5 @@
+import { DEFAULT_CRAWL_FETCH_TIMEOUT_MS, fetchWithTimeout } from "./fetch-timeout";
+
 export type AshbyJob = {
   id: string;
   title: string;
@@ -79,15 +81,22 @@ export type BoardFeedResponse =
 
 export function createAshbyBoardFeedFetcher(
   fetchImpl: typeof fetch = fetch,
+  options: { timeoutMs?: number } = {},
 ): (url: string) => Promise<BoardFeedResponse> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_CRAWL_FETCH_TIMEOUT_MS;
   return async (url) => {
     try {
-      const response = await fetchImpl(url, {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "hsm-jobs-mcp/0.1 (opening-ingest; public board feed)",
+      const response = await fetchWithTimeout(
+        fetchImpl,
+        url,
+        {
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "hsm-jobs-mcp/0.1 (opening-ingest; public board feed)",
+          },
         },
-      });
+        { timeoutMs },
+      );
       if (!response.ok) {
         return { ok: false, status: response.status };
       }

@@ -215,7 +215,9 @@ Check employer careers pages and the [official IND register](https://ind.nl/en/p
 
 ## Connect to the public site (later)
 
-When the public site is fully ready, use these URLs instead of localhost:
+The public site still returns an error until indexing finishes. Do not use the public URL yet. Stay on localhost from the steps above.
+
+When the public site is ready, use these URLs instead of localhost:
 
 ```bash
 claude mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
@@ -226,7 +228,7 @@ No login required in v1.
 
 ## For developers
 
-Operator env contract, architecture diagram, HTTP paths, and CI notes: [docs/README-developers.md](docs/README-developers.md).
+Operator shared-release runbook (stop/resume, remote D1, verify), env contract, architecture, and CI notes: [docs/README-developers.md](docs/README-developers.md).
 
 Stack and hosting decisions: [ADR 0009](docs/adr/0009-v1-stack-and-hosting.md).
 

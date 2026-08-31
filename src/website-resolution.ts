@@ -1,3 +1,4 @@
+import { DEFAULT_CRAWL_FETCH_TIMEOUT_MS, fetchWithTimeout } from "./fetch-timeout";
 import { PRODUCT_USER_AGENT } from "./robots";
 
 export type PageGetResult = {
@@ -287,15 +288,20 @@ function normalizeHost(value: string): string | null {
   return host.length > 0 ? host : null;
 }
 
+export type TimedFetchOptions = {
+  timeoutMs?: number;
+};
+
 export function createWikidataSparqlLookup(
   fetchImpl: typeof fetch,
+  options: TimedFetchOptions = {},
 ): WebsiteResolutionProviders["wikidata"] {
   return {
     async websiteForKvk(kvk) {
       const padded = kvk.replace(/\D/g, "").padStart(8, "0");
       const ids = [...new Set([padded, padded.replace(/^0+/, "") || padded])];
       for (const id of ids) {
-        const website = await sparqlOfficialWebsite(id, fetchImpl);
+        const website = await sparqlOfficialWebsite(id, fetchImpl, options.timeoutMs);
         if (website) return website;
       }
       return null;
@@ -303,32 +309,54 @@ export function createWikidataSparqlLookup(
   };
 }
 
-async function sparqlOfficialWebsite(kvkId: string, fetchImpl: typeof fetch): Promise<string | null> {
+async function sparqlOfficialWebsite(
+  kvkId: string,
+  fetchImpl: typeof fetch,
+  timeoutMs = DEFAULT_CRAWL_FETCH_TIMEOUT_MS,
+): Promise<string | null> {
   const query = `SELECT ?website WHERE { ?item wdt:P3220 "${kvkId}" . ?item wdt:P856 ?website . } LIMIT 1`;
   const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}`;
-  const response = await fetchImpl(url, {
-    headers: {
-      Accept: "application/sparql-results+json",
-      "User-Agent": "hsm-jobs-mcp/0.1 (website-resolution; P3220 lookup)",
-    },
-  });
-  if (!response.ok) return null;
-  const payload = (await response.json()) as {
-    results?: { bindings?: Array<{ website?: { value?: string } }> };
-  };
-  return payload.results?.bindings?.[0]?.website?.value ?? null;
+  try {
+    const response = await fetchWithTimeout(
+      fetchImpl,
+      url,
+      {
+        headers: {
+          Accept: "application/sparql-results+json",
+          "User-Agent": "hsm-jobs-mcp/0.1 (website-resolution; P3220 lookup)",
+        },
+      },
+      { timeoutMs },
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json()) as {
+      results?: { bindings?: Array<{ website?: { value?: string } }> };
+    };
+    return payload.results?.bindings?.[0]?.website?.value ?? null;
+  } catch {
+    return null;
+  }
 }
 
-export function createHttpsPageGetter(fetchImpl: typeof fetch): WebsiteResolutionProviders["getPage"] {
+export function createHttpsPageGetter(
+  fetchImpl: typeof fetch,
+  options: TimedFetchOptions = {},
+): WebsiteResolutionProviders["getPage"] {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_CRAWL_FETCH_TIMEOUT_MS;
   return async (url) => {
     try {
-      const response = await fetchImpl(url, {
-        redirect: "follow",
-        headers: {
-          "User-Agent": PRODUCT_USER_AGENT,
-          Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+      const response = await fetchWithTimeout(
+        fetchImpl,
+        url,
+        {
+          redirect: "follow",
+          headers: {
+            "User-Agent": PRODUCT_USER_AGENT,
+            Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+          },
         },
-      });
+        { timeoutMs },
+      );
       return {
         status: response.status,
         finalUrl: response.url || url,

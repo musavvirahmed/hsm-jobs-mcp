@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createProductionCrawlRuntime } from "../src/crawl-runtime";
@@ -14,6 +14,29 @@ import { createHttpsPageGetter, type PageGetResult } from "../src/website-resolu
 
 const RENTMAN = { kvk: "60733144", name: "Rentman B.V." };
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Load repo `.env` into process.env when present. Does not override existing vars. */
+function loadDotEnvIfPresent(filePath: string): void {
+  if (!existsSync(filePath)) return;
+  for (const rawLine of readFileSync(filePath, "utf8").split("\n")) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq <= 0) continue;
+    const key = line.slice(0, eq).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+loadDotEnvIfPresent(join(ROOT, ".env"));
+
 const ASHBY_RENTMAN_FEED_URL =
   "https://api.ashbyhq.com/posting-api/job-board/rentman?includeCompensation=true";
 const RECORDED_ASHBY_FEED = readFileSync(
@@ -70,6 +93,9 @@ async function main(): Promise<void> {
         providers: runtime.providers,
         getBrowserPage: runtime.getBrowserPage,
         maxAttempts,
+        onProgress: (line) => {
+          console.error(`[crawl] ${line}`);
+        },
       })
     : await runOutOfBandCrawl({
         register: runtime.register,
@@ -95,6 +121,7 @@ async function main(): Promise<void> {
         re_partialed: report.re_partialed,
         missing_terminal_outcomes_before: report.missing_terminal_outcomes_before,
         missing_terminal_outcomes_after: report.missing_terminal_outcomes_after,
+        attempted: "attempted" in report ? report.attempted : null,
         crawl_failure_streak: "crawl_failure_streak" in report ? report.crawl_failure_streak : null,
         last_successful_crawl: snapshot.last_successful_crawl,
         index_scope: snapshot.index_scope,

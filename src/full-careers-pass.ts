@@ -11,7 +11,7 @@ import {
   type WebsiteIngestReport,
   type WebsiteResolutionProviders,
 } from "./opening-ingest";
-import { createRegisterSubset, type RegisterSource } from "./register-source";
+import { createRegisterFromSponsors, type RegisterSource } from "./register-source";
 
 export type FullCareersPassReport = {
   pass: IndexPass;
@@ -40,16 +40,24 @@ export async function runFullCareersPass(opts: {
   now?: () => string;
   /** Cap how many missing KvKs this invocation attempts (resumable batches). */
   maxAttempts?: number;
+  /** Optional progress sink (defaults to silent). Operator CLI wires stderr. */
+  onProgress?: (line: string) => void;
 }): Promise<FullCareersPassReport> {
   const now = opts.now ?? (() => new Date().toISOString());
+  const progress = opts.onProgress ?? (() => {});
+
+  progress("loading register…");
   const register = await opts.register.load();
+  progress(`register loaded: ${register.sponsors.length} sponsors (as_of=${register.asOf ?? "null"})`);
 
   await opts.index.setRegisterMeta({
     register_size: register.sponsors.length,
     register_as_of: register.asOf,
   });
 
+  progress("scanning terminal outcomes (bulk)…");
   const missingBefore = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
+  progress(`missing terminal outcomes: ${missingBefore.length}`);
   let rePartialed = false;
   if (missingBefore.length > 0) {
     await opts.index.setPass("partial");
@@ -58,41 +66,48 @@ export async function runFullCareersPass(opts: {
 
   const budget = opts.maxAttempts ?? missingBefore.length;
   const batch = missingBefore.slice(0, Math.max(0, budget));
+  progress(
+    `batch: attempting ${batch.length} of ${missingBefore.length} missing terminal outcomes` +
+      (opts.maxAttempts != null ? ` (CRAWL_MAX_ATTEMPTS=${opts.maxAttempts})` : ""),
+  );
 
   let websiteIngest: WebsiteIngestReport | null = null;
   let ladderIngest: LadderIngestReport | null = null;
 
   if (batch.length > 0) {
-    const needWebsite: string[] = [];
-    for (const kvk of batch) {
-      if (!(await opts.index.getOfficialWebsite(kvk))) {
-        needWebsite.push(kvk);
-      }
-    }
+    const haveWebsite = new Set(await opts.index.listOfficialWebsiteKvks());
+    const needWebsite = batch.filter((kvk) => !haveWebsite.has(kvk));
     if (needWebsite.length > 0) {
+      progress(`website resolution: ${needWebsite.length} KvKs`);
       websiteIngest = await ingestWebsiteResolutions({
-        register: createRegisterSubset(opts.register, new Set(needWebsite)),
+        register: createRegisterFromSponsors(register.sponsors, register.asOf, new Set(needWebsite)),
         index: opts.index,
         providers: opts.providers,
         now,
+        onProgress: progress,
+        updateRegisterMeta: false,
       });
+      progress(`website resolution done`);
     }
 
-    const stillMissing: string[] = [];
-    for (const kvk of batch) {
-      if (!(await opts.index.getTerminalOutcome(kvk)) && (await opts.index.getOfficialWebsite(kvk))) {
-        stillMissing.push(kvk);
-      }
-    }
+    const haveOutcome = new Set(await opts.index.listTerminalOutcomeKvks());
+    const haveWebsiteAfter = new Set(await opts.index.listOfficialWebsiteKvks());
+    const stillMissing = batch.filter(
+      (kvk) => !haveOutcome.has(kvk) && haveWebsiteAfter.has(kvk),
+    );
     if (stillMissing.length > 0) {
+      progress(`extraction ladder: ${stillMissing.length} KvKs`);
       ladderIngest = await ingestExtractionLadder({
-        register: createRegisterSubset(opts.register, new Set(stillMissing)),
+        register: createRegisterFromSponsors(register.sponsors, register.asOf, new Set(stillMissing)),
         index: opts.index,
         fetchBoardFeed: opts.fetchBoardFeed,
         getPage: opts.providers.getPage,
         getBrowserPage: opts.getBrowserPage,
         now,
+        onProgress: progress,
+        updateRegisterMeta: false,
       });
+      progress(`extraction ladder done`);
     }
   }
 
@@ -102,6 +117,10 @@ export async function runFullCareersPass(opts: {
   });
 
   const reconciled = await reconcileIndexPass(opts.index, register.sponsors);
+  progress(
+    `done: missing_before=${missingBefore.length} attempted=${batch.length} ` +
+      `missing_after=${reconciled.missing_terminal_outcomes} pass=${reconciled.pass}`,
+  );
   return {
     pass: reconciled.pass,
     re_partialed: rePartialed,
