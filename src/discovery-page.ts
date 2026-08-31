@@ -6,6 +6,7 @@ import {
   PUBLIC_PATHS,
   READING_THE_ANSWERS_GIST,
   SERVER_NAME,
+  SHARED_RELEASE_WIP_MARKER,
   V1_JOBS_TOOLS,
 } from "./packaging";
 
@@ -123,6 +124,9 @@ export function renderDiscoveryPage(origin: string): string {
   const connectInner = `
     <p>Attach <strong>both</strong> servers: <code>${escapeHtml(CLIENT_KEY)}</code> here and
       <code>${escapeHtml(HSM_MCP_CLIENT_KEY)}</code> on hsm-mcp.</p>
+    <p><strong>Public <code>/mcp</code> — ${escapeHtml(SHARED_RELEASE_WIP_MARKER)}</strong>
+      until shared release (full careers pass). Shared <code>/mcp</code> returns 503 until then;
+      run a local private release for a working jobs MCP.</p>
     <p><strong>Claude Code</strong></p>
     <pre><code>claude mcp add --transport http ${escapeHtml(CLIENT_KEY)} ${escapeHtml(mcpUrl)}
 claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(hsmMcpUrl)}</code></pre>

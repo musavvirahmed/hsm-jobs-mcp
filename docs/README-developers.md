@@ -1,6 +1,7 @@
 # Developer and operator reference
 
-Human-first setup lives in the [root README](../README.md). This page holds architecture, env contract, and CI detail for operators and agents.
+Human-first Connect and Architecture live in the [root README](../README.md).
+This page holds env contract, crawl/CI detail, and a matching Architecture diagram for operators and agents.
 
 ## Local / private release (operator)
 
@@ -63,7 +64,7 @@ Default target: `https://hsmjobs.musavvir.work` (override with `SHARED_RELEASE_O
 - `POST /mcp` initialize succeeds (not 503)
 - `get_index_status` reports `pass: full_careers_pass`, `omissions_possible: false`, and a plausible `register_size`
 
-Unit tests cover verify logic against a local HTTP handler — no live-network dependency on every PR. Run `shared-release:verify` against production manually when the crawl finishes.
+Unit tests cover verify logic against a local HTTP handler — no live-network dependency on every PR. Run `shared-release:verify` against production manually when the crawl finishes. After verify passes, remove the **shared-release WIP marker** (`coming soon`) from the Product README Connect section and the discovery page Connect copy.
 
 ## Architecture
 
