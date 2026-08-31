@@ -1,4 +1,5 @@
 import { parseIndRegisterHtml } from "./ind-register-parse";
+import { DEFAULT_CRAWL_FETCH_TIMEOUT_MS, fetchWithTimeout } from "./fetch-timeout";
 import { HSM_MCP_ORIGIN } from "./packaging";
 import type { HsmRegisterClient, RegisterSponsor } from "./register-source";
 
@@ -88,6 +89,8 @@ export type StreamableHsmMcpClientOptions = {
   origin?: string;
   fetchImpl?: typeof fetch;
   userAgent?: string;
+  /** Timeout for IND HTML register fetch (MCP tool calls use the client transport). */
+  fetchTimeoutMs?: number;
 };
 
 /** Live hsm-mcp transport: MCP status + IND HTML fetch gated on that status. */
@@ -96,6 +99,7 @@ export function createStreamableHsmMcpRegisterTransport(
 ): HsmMcpRegisterTransport & { close(): Promise<void> } {
   const origin = (options.origin ?? HSM_MCP_ORIGIN).replace(/\/$/, "");
   const fetchImpl = options.fetchImpl ?? fetch;
+  const fetchTimeoutMs = options.fetchTimeoutMs ?? DEFAULT_CRAWL_FETCH_TIMEOUT_MS;
   const userAgent =
     options.userAgent ??
     "hsm-jobs-mcp/0.1 (operator crawl; register load gated via hsm-mcp)";
@@ -133,13 +137,18 @@ export function createStreamableHsmMcpRegisterTransport(
     },
 
     async fetchRegisterHtml(url: string) {
-      const response = await fetchImpl(url, {
-        headers: {
-          "User-Agent": userAgent,
-          Accept: "text/html",
-          "Accept-Language": "en",
+      const response = await fetchWithTimeout(
+        fetchImpl,
+        url,
+        {
+          headers: {
+            "User-Agent": userAgent,
+            Accept: "text/html",
+            "Accept-Language": "en",
+          },
         },
-      });
+        { timeoutMs: fetchTimeoutMs },
+      );
       if (!response.ok) {
         throw new Error(`IND register fetch failed: HTTP ${response.status}`);
       }

@@ -10,7 +10,7 @@ import {
 } from "./opening-ingest";
 import { listMissingTerminalOutcomeKvks, reconcileIndexPass } from "./index-pass";
 import type { WritableJobsIndex } from "./jobs-index";
-import { createRegisterSubset, type RegisterSource } from "./register-source";
+import { createRegisterFromSponsors, type RegisterSource } from "./register-source";
 
 export const DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD = 2;
 
@@ -80,12 +80,17 @@ export async function runOutOfBandCrawl(opts: {
 
   const stillMissing = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
   if (stillMissing.length > 0) {
-    const missingRegister = createRegisterSubset(opts.register, new Set(stillMissing));
+    const missingRegister = createRegisterFromSponsors(
+      register.sponsors,
+      register.asOf,
+      new Set(stillMissing),
+    );
     websiteIngest = await ingestWebsiteResolutions({
       register: missingRegister,
       index: opts.index,
       providers: opts.providers,
       now,
+      updateRegisterMeta: false,
     });
 
     const afterWebsite = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
@@ -97,12 +102,13 @@ export async function runOutOfBandCrawl(opts: {
     }
     if (withWebsite.length > 0) {
       ladderIngest = await ingestExtractionLadder({
-        register: createRegisterSubset(opts.register, new Set(withWebsite)),
+        register: createRegisterFromSponsors(register.sponsors, register.asOf, new Set(withWebsite)),
         index: opts.index,
         fetchBoardFeed: opts.fetchBoardFeed,
         getPage,
         getBrowserPage: opts.getBrowserPage,
         now,
+        updateRegisterMeta: false,
       });
     }
   }

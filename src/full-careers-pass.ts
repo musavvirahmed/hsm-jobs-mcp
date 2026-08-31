@@ -11,7 +11,7 @@ import {
   type WebsiteIngestReport,
   type WebsiteResolutionProviders,
 } from "./opening-ingest";
-import { createRegisterSubset, type RegisterSource } from "./register-source";
+import { createRegisterFromSponsors, type RegisterSource } from "./register-source";
 
 export type FullCareersPassReport = {
   pass: IndexPass;
@@ -40,9 +40,15 @@ export async function runFullCareersPass(opts: {
   now?: () => string;
   /** Cap how many missing KvKs this invocation attempts (resumable batches). */
   maxAttempts?: number;
+  /** Optional progress sink (defaults to silent). Operator CLI wires stderr. */
+  onProgress?: (line: string) => void;
 }): Promise<FullCareersPassReport> {
   const now = opts.now ?? (() => new Date().toISOString());
+  const progress = opts.onProgress ?? (() => {});
+
+  progress("loading register…");
   const register = await opts.register.load();
+  progress(`register loaded: ${register.sponsors.length} sponsors (as_of=${register.asOf ?? "null"})`);
 
   await opts.index.setRegisterMeta({
     register_size: register.sponsors.length,
@@ -58,6 +64,10 @@ export async function runFullCareersPass(opts: {
 
   const budget = opts.maxAttempts ?? missingBefore.length;
   const batch = missingBefore.slice(0, Math.max(0, budget));
+  progress(
+    `batch: attempting ${batch.length} of ${missingBefore.length} missing terminal outcomes` +
+      (opts.maxAttempts != null ? ` (CRAWL_MAX_ATTEMPTS=${opts.maxAttempts})` : ""),
+  );
 
   let websiteIngest: WebsiteIngestReport | null = null;
   let ladderIngest: LadderIngestReport | null = null;
@@ -70,12 +80,16 @@ export async function runFullCareersPass(opts: {
       }
     }
     if (needWebsite.length > 0) {
+      progress(`website resolution: ${needWebsite.length} KvKs`);
       websiteIngest = await ingestWebsiteResolutions({
-        register: createRegisterSubset(opts.register, new Set(needWebsite)),
+        register: createRegisterFromSponsors(register.sponsors, register.asOf, new Set(needWebsite)),
         index: opts.index,
         providers: opts.providers,
         now,
+        onProgress: progress,
+        updateRegisterMeta: false,
       });
+      progress(`website resolution done`);
     }
 
     const stillMissing: string[] = [];
@@ -85,14 +99,18 @@ export async function runFullCareersPass(opts: {
       }
     }
     if (stillMissing.length > 0) {
+      progress(`extraction ladder: ${stillMissing.length} KvKs`);
       ladderIngest = await ingestExtractionLadder({
-        register: createRegisterSubset(opts.register, new Set(stillMissing)),
+        register: createRegisterFromSponsors(register.sponsors, register.asOf, new Set(stillMissing)),
         index: opts.index,
         fetchBoardFeed: opts.fetchBoardFeed,
         getPage: opts.providers.getPage,
         getBrowserPage: opts.getBrowserPage,
         now,
+        onProgress: progress,
+        updateRegisterMeta: false,
       });
+      progress(`extraction ladder done`);
     }
   }
 
@@ -102,6 +120,10 @@ export async function runFullCareersPass(opts: {
   });
 
   const reconciled = await reconcileIndexPass(opts.index, register.sponsors);
+  progress(
+    `done: missing_before=${missingBefore.length} attempted=${batch.length} ` +
+      `missing_after=${reconciled.missing_terminal_outcomes} pass=${reconciled.pass}`,
+  );
   return {
     pass: reconciled.pass,
     re_partialed: rePartialed,

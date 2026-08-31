@@ -51,3 +51,13 @@ export function createRegisterSubset(source: RegisterSource, kvks: Set<string>):
     },
   };
 }
+
+/** In-memory subset of an already-loaded register — does not call the source again. */
+export function createRegisterFromSponsors(
+  sponsors: RegisterSponsor[],
+  asOf: string | null,
+  kvks?: Set<string>,
+): RegisterSource {
+  const filtered = kvks ? sponsors.filter((sponsor) => kvks.has(sponsor.kvk)) : sponsors;
+  return createFixtureRegister(filtered, asOf);
+}
