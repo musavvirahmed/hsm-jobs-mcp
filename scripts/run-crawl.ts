@@ -95,6 +95,7 @@ async function main(): Promise<void> {
         re_partialed: report.re_partialed,
         missing_terminal_outcomes_before: report.missing_terminal_outcomes_before,
         missing_terminal_outcomes_after: report.missing_terminal_outcomes_after,
+        attempted: "attempted" in report ? report.attempted : null,
         crawl_failure_streak: "crawl_failure_streak" in report ? report.crawl_failure_streak : null,
         last_successful_crawl: snapshot.last_successful_crawl,
         index_scope: snapshot.index_scope,

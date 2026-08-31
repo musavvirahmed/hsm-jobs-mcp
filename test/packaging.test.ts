@@ -186,3 +186,17 @@ test("developer README documents operator loop and architecture", () => {
   expect(developerReadme).toMatch(/\| `\/mcp` \|/);
   expect(developerReadme).toMatch(/\| `\/health` \|/);
 });
+
+test("developer README documents shared-release operator runbook", () => {
+  expect(developerReadme).toMatch(/## Shared release \(operator runbook\)/i);
+  expect(developerReadme).toContain("JOBS_INDEX_TARGET=remote-d1");
+  expect(developerReadme).toContain("CRAWL_MAX_ATTEMPTS");
+  expect(developerReadme).toContain("missing_terminal_outcomes_before");
+  expect(developerReadme).toContain("missing_terminal_outcomes_after");
+  expect(developerReadme).toContain("attempted");
+  expect(developerReadme).toMatch(/Ctrl\+C|SIGINT/i);
+  expect(developerReadme).toMatch(/hsm-mcp/);
+  expect(developerReadme).toMatch(/website resolution/i);
+  expect(developerReadme).toMatch(/npm run shared-release:verify/);
+  expect(developerReadme).toMatch(/full_careers_pass/);
+});
