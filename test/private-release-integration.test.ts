@@ -30,6 +30,7 @@ test("buildPrivateReleaseIntegrationEnv pins crawl and dev to the same ephemeral
   expect(env.JOBS_INDEX_LOCAL_D1_STATE).toBe(stateDir);
   expect(env.PRIVATE_RELEASE_ORIGIN).toBe("http://127.0.0.1:9876");
   expect(env.CRAWL_SMOKE).toBeUndefined();
+  expect(env.CRAWL_FIXTURE_REGISTER).toBe("1");
 });
 
 test("pollHealthUntilReady resolves when /health returns up or stale", async () => {
