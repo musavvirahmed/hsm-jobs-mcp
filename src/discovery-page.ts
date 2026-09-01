@@ -1,10 +1,13 @@
 import {
   CLIENT_KEY,
-  EXAMPLE_ASKS,
+  EXAMPLE_JOB_ASKS,
   HSM_MCP_CLIENT_KEY,
   HSM_MCP_ORIGIN,
+  IND_HSM_PERMIT_URL,
+  IND_PUBLIC_REGISTER_WORK_URL,
   PUBLIC_PATHS,
   READING_THE_ANSWERS_GIST,
+  REGISTER_ONLY_ASK,
   SERVER_NAME,
   V1_JOBS_TOOLS,
 } from "./packaging";
@@ -63,6 +66,17 @@ const DISCOVERY_STYLES = `
     color: var(--cyan);
     padding: 0 6px;
   }
+  .tui-box--muted {
+    border-color: var(--muted);
+    color: var(--muted);
+  }
+  .tui-box--muted::before {
+    color: var(--muted);
+  }
+  .tui-box--muted a { color: var(--muted); }
+  .tui-box--muted code, .tui-box--muted pre {
+    background: rgba(127, 127, 127, 0.1);
+  }
   p { margin: 0 0 0.75rem; }
   ul { margin: 0; padding-left: 1.2rem; }
   li { margin-bottom: 0.35rem; }
@@ -102,12 +116,13 @@ function listItems(items: readonly string[]): string {
 function toolList(): string {
   return V1_JOBS_TOOLS.map(
     (tool) =>
-      `<li><code>${escapeHtml(tool.name)}</code> — ${escapeHtml(tool.description)}</li>`,
+      `<li><code>${escapeHtml(tool.name)}</code> - ${escapeHtml(tool.description)}</li>`,
   ).join("\n");
 }
 
-function tuiBox(title: string, inner: string): string {
-  return `<section class="tui-box" data-title="${escapeHtml(title)}">${inner}</section>`;
+function tuiBox(title: string, inner: string, muted = false): string {
+  const klass = muted ? "tui-box tui-box--muted" : "tui-box";
+  return `<section class="${klass}" data-title="${escapeHtml(title)}">${inner}</section>`;
 }
 
 export function renderDiscoveryPage(origin: string): string {
@@ -116,18 +131,19 @@ export function renderDiscoveryPage(origin: string): string {
   const hsmMcpUrl = `${HSM_MCP_ORIGIN}/mcp`;
 
   const lede = `
-    MCP server for <strong>Openings</strong> on recognised-sponsor (IND Work) companies’
-    careers and ATS pages — layer 2 only. Not a public job portal. Pair with
-    <a href="${escapeHtml(HSM_MCP_ORIGIN)}">hsm-mcp</a> for register-only questions.`;
+    If you are a non-EU person looking for a job in the Netherlands, you must prove yourself as a
+    <a href="${escapeHtml(IND_HSM_PERMIT_URL)}">Highly skilled migrant</a>,
+    and on top of that, only a finite number of companies can sponsor you.
+    What if you could simply ask your AI (model of choice) which
+    <a href="${escapeHtml(IND_PUBLIC_REGISTER_WORK_URL)}">Dutch recognised sponsors</a>
+    are hiring? This MCP server will do exactly that. It will find you
+    <strong>Openings</strong> by those recognised sponsors, and present them to you in an easy-to-read way.
+    Goes without saying, this is not a job portal.`;
 
   const connectInner = `
     <p>Attach <strong>both</strong> servers: <code>${escapeHtml(CLIENT_KEY)}</code> here and
       <code>${escapeHtml(HSM_MCP_CLIENT_KEY)}</code> on hsm-mcp.</p>
-    <p><strong>Claude Code</strong></p>
-    <pre><code>claude mcp add --transport http ${escapeHtml(CLIENT_KEY)} ${escapeHtml(mcpUrl)}
-claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(hsmMcpUrl)}</code></pre>
-    <p><strong>claude.ai / Claude Desktop</strong> — Settings → Connectors → Add custom connector →
-      <code>${escapeHtml(mcpUrl)}</code> (and add hsm-mcp separately).</p>
+    <p class="muted">Register-only (e.g. <em>${escapeHtml(REGISTER_ONLY_ASK)}</em>)</p>
     <p><strong>Any MCP client</strong> (Cursor, etc.)</p>
     <pre><code>{
   "mcpServers": {
@@ -135,13 +151,18 @@ claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(h
     "${escapeHtml(HSM_MCP_CLIENT_KEY)}": { "url": "${escapeHtml(hsmMcpUrl)}" }
   }
 }</code></pre>
+    <p><strong>Claude Code</strong></p>
+    <pre><code>claude mcp add --transport http ${escapeHtml(CLIENT_KEY)} ${escapeHtml(mcpUrl)}
+claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(hsmMcpUrl)}</code></pre>
+    <p class="muted"><strong>claude.ai / Claude Desktop</strong>: Settings → Connectors → Add custom connector →
+      <code>${escapeHtml(mcpUrl)}</code> (and add hsm-mcp separately).</p>
     <p class="muted">No auth in v1. Rate limits follow the live deploy when present; additional limiting may be added later.</p>`;
 
   const pathsInner = `
     <ul>
-      <li><code>${escapeHtml(PUBLIC_PATHS[0])}</code> — this discovery page</li>
-      <li><code>${escapeHtml(PUBLIC_PATHS[1])}</code> — Streamable HTTP MCP (<code>serverInfo.name</code>: <code>${escapeHtml(SERVER_NAME)}</code>)</li>
-      <li><code>${escapeHtml(PUBLIC_PATHS[2])}</code> — coarse operator health (<a href="${escapeHtml(healthUrl)}">${escapeHtml(healthUrl)}</a>)</li>
+      <li><code>${escapeHtml(PUBLIC_PATHS[0])}</code> - this discovery page</li>
+      <li><code>${escapeHtml(PUBLIC_PATHS[1])}</code> - Streamable HTTP MCP (<code>serverInfo.name</code>: <code>${escapeHtml(SERVER_NAME)}</code>)</li>
+      <li><code>${escapeHtml(PUBLIC_PATHS[2])}</code> - coarse operator health (<a href="${escapeHtml(healthUrl)}">${escapeHtml(healthUrl)}</a>)</li>
     </ul>`;
 
   const freshnessInner = `
@@ -172,12 +193,12 @@ claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(h
       <h1>${escapeHtml(SERVER_NAME)}</h1>
       <p class="lede">${lede}</p>
     </header>
-    ${tuiBox("Connect (Streamable HTTP)", connectInner)}
-    ${tuiBox("Public paths", pathsInner)}
-    ${tuiBox("Tools", `<ul>${toolList()}</ul>`)}
-    ${tuiBox("Then just ask", `<ul>${listItems(EXAMPLE_ASKS)}</ul>`)}
-    ${tuiBox("Reading the answers", `<ul>${listItems(READING_THE_ANSWERS_GIST)}</ul>`)}
-    ${tuiBox("Freshness", freshnessInner)}
+    ${tuiBox("Then just ask", `<ul>${listItems(EXAMPLE_JOB_ASKS)}</ul>`)}
+    ${tuiBox("Connect", connectInner)}
+    ${tuiBox("What the answers mean", `<ul>${listItems(READING_THE_ANSWERS_GIST)}</ul>`)}
+    ${tuiBox("How fresh is this?", freshnessInner)}
+    ${tuiBox("Tools", `<ul>${toolList()}</ul>`, true)}
+    ${tuiBox("Public paths", pathsInner, true)}
     <div class="tui-footer">${footerInner}</div>
   </div>
 </body>
