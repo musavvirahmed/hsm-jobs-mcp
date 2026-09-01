@@ -112,8 +112,13 @@ async function main(): Promise<void> {
   }
 
   if (closeRuntime) {
+    console.error("[crawl] closing runtime…");
     await closeRuntime();
   }
+  console.error("[crawl] batch process exiting");
+  // Playwright/MCP sockets can keep the event loop alive after close(); exit so
+  // CI and the full-pass loop are not stuck after a successful crawl.
+  process.exit(process.exitCode ?? 0);
 }
 
 function smokeFetchBoardFeed() {
