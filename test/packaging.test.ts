@@ -53,6 +53,14 @@ test("GET / documents connect with hsm-jobs and required hsm-mcp pairing", async
   expect(html).toContain(HSM_MCP_CLIENT_KEY);
   expect(html).toContain(HSM_MCP_ORIGIN);
   expect(html).toMatch(/streamable http/i);
+  expect(html).toContain("Add this server to your AI tool");
+  expect(html).toContain("hsm-mcp can help you answer");
+  expect(html).toContain("Is Booking.com a recognised sponsor?");
+  const connectMatch = html.match(
+    /data-title="Connect servers first"[^>]*>([\s\S]*?)<\/section>/,
+  );
+  expect(connectMatch?.[1]).toBeTruthy();
+  expect(connectMatch?.[1]).not.toMatch(/<strong>/i);
 });
 
 test("GET / lists all v1 jobs tools and locked example asks", async () => {
@@ -80,6 +88,12 @@ test("GET / includes reading-the-answers gist and freshness pointers", async () 
   }
   expect(html).toContain("/health");
   expect(html).toContain("get_index_status");
+  expect(html).toContain("refreshed out of band");
+  expect(html).toContain("not affiliated with or endorsed by");
+  expect(html).toContain("Licence:");
+  expect(html).toContain("MIT");
+  expect(html).toContain("musavvir.info");
+  expect(html).toContain("© 2026");
 });
 
 test("GET / is connect/discovery only — no portal surfaces", async () => {
@@ -103,12 +117,19 @@ test("GET / uses TUI discovery chrome (variant B winner)", async () => {
   const html = await response.text();
   expect(html).toContain('class="tui-header"');
   expect(html).toContain('class="tui-box"');
-  expect(html).toContain('data-title="Connect"');
+  expect(html).toContain('data-title="Connect servers first"');
   expect(html).toContain('data-title="Then just ask"');
-  expect(html).toContain('data-title="What the answers mean"');
-  expect(html).toContain('data-title="How fresh is this?"');
-  expect(html).toContain("tui-box--muted");
+  expect(html).toContain('data-title="Tools"');
+  expect(html).toContain('data-title="Public paths"');
+  expect(html).toContain('data-title="What will the answers mean"');
+  expect(html).toContain('data-title="How reliable/updated are the answers?"');
+  expect(html).not.toContain("tui-box--muted");
   expect(html).toContain("finite number of companies");
+  expect(html).toContain("most likely will be asked to establish");
+  expect(html).toContain("job openings");
+  expect(html).toContain("display them");
+  expect(html).not.toContain("not a job portal");
+  expect(html).not.toContain("<strong>Openings</strong>");
   expect(html).toContain(IND_HSM_PERMIT_URL);
 });
 

@@ -1,10 +1,13 @@
 import {
+  AUTHOR_URL,
   CLIENT_KEY,
   EXAMPLE_JOB_ASKS,
   HSM_MCP_CLIENT_KEY,
   HSM_MCP_ORIGIN,
+  IND_HOME_URL,
   IND_HSM_PERMIT_URL,
   IND_PUBLIC_REGISTER_WORK_URL,
+  LICENSE_URL,
   PUBLIC_PATHS,
   READING_THE_ANSWERS_GIST,
   REGISTER_ONLY_ASK,
@@ -66,17 +69,6 @@ const DISCOVERY_STYLES = `
     color: var(--cyan);
     padding: 0 6px;
   }
-  .tui-box--muted {
-    border-color: var(--muted);
-    color: var(--muted);
-  }
-  .tui-box--muted::before {
-    color: var(--muted);
-  }
-  .tui-box--muted a { color: var(--muted); }
-  .tui-box--muted code, .tui-box--muted pre {
-    background: rgba(127, 127, 127, 0.1);
-  }
   p { margin: 0 0 0.75rem; }
   ul { margin: 0; padding-left: 1.2rem; }
   li { margin-bottom: 0.35rem; }
@@ -120,9 +112,8 @@ function toolList(): string {
   ).join("\n");
 }
 
-function tuiBox(title: string, inner: string, muted = false): string {
-  const klass = muted ? "tui-box tui-box--muted" : "tui-box";
-  return `<section class="${klass}" data-title="${escapeHtml(title)}">${inner}</section>`;
+function tuiBox(title: string, inner: string): string {
+  return `<section class="tui-box" data-title="${escapeHtml(title)}">${inner}</section>`;
 }
 
 export function renderDiscoveryPage(origin: string): string {
@@ -131,30 +122,30 @@ export function renderDiscoveryPage(origin: string): string {
   const hsmMcpUrl = `${HSM_MCP_ORIGIN}/mcp`;
 
   const lede = `
-    If you are a non-EU person looking for a job in the Netherlands, you must prove yourself as a
+    If you are a non-EU person looking for a job in the Netherlands, you most likely will be asked to establish yourself as a
     <a href="${escapeHtml(IND_HSM_PERMIT_URL)}">Highly skilled migrant</a>,
     and on top of that, only a finite number of companies can sponsor you.
     What if you could simply ask your AI (model of choice) which
     <a href="${escapeHtml(IND_PUBLIC_REGISTER_WORK_URL)}">Dutch recognised sponsors</a>
     are hiring? This MCP server will do exactly that. It will find you
-    <strong>Openings</strong> by those recognised sponsors, and present them to you in an easy-to-read way.
-    Goes without saying, this is not a job portal.`;
+    job openings by those recognised sponsors, and display them to you in an easy-to-read way.`;
 
   const connectInner = `
-    <p>Attach <strong>both</strong> servers: <code>${escapeHtml(CLIENT_KEY)}</code> here and
-      <code>${escapeHtml(HSM_MCP_CLIENT_KEY)}</code> on hsm-mcp.</p>
-    <p class="muted">Register-only (e.g. <em>${escapeHtml(REGISTER_ONLY_ASK)}</em>)</p>
-    <p><strong>Any MCP client</strong> (Cursor, etc.)</p>
+    <p>Add this server to your AI tool, then add
+      <a href="${escapeHtml(HSM_MCP_ORIGIN)}/">hsm-mcp</a> as well.
+      ${escapeHtml(SERVER_NAME)} server answers - who is hiring. hsm-mcp answers a simpler question - who is on the IND Public register Work.</p>
+    <p class="muted">hsm-mcp can help you answer “${escapeHtml(REGISTER_ONLY_ASK)}”</p>
+    <p>Any MCP client (Cursor, etc.)</p>
     <pre><code>{
   "mcpServers": {
     "${escapeHtml(CLIENT_KEY)}": { "url": "${escapeHtml(mcpUrl)}" },
     "${escapeHtml(HSM_MCP_CLIENT_KEY)}": { "url": "${escapeHtml(hsmMcpUrl)}" }
   }
 }</code></pre>
-    <p><strong>Claude Code</strong></p>
+    <p>Claude Code</p>
     <pre><code>claude mcp add --transport http ${escapeHtml(CLIENT_KEY)} ${escapeHtml(mcpUrl)}
 claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(hsmMcpUrl)}</code></pre>
-    <p class="muted"><strong>claude.ai / Claude Desktop</strong>: Settings → Connectors → Add custom connector →
+    <p class="muted">claude.ai / Claude Desktop: Settings → Connectors → Add custom connector →
       <code>${escapeHtml(mcpUrl)}</code> (and add hsm-mcp separately).</p>
     <p class="muted">No auth in v1. Rate limits follow the live deploy when present; additional limiting may be added later.</p>`;
 
@@ -167,16 +158,25 @@ claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(h
 
   const freshnessInner = `
     <p>
-      Coarse deploy health: <a href="${escapeHtml(healthUrl)}"><code>/health</code></a>.
-      Rich index scope, crawl timestamps, and register-join upstream status: ask via
+      Answers come from a jobs index that is refreshed out of band, not at the moment you ask.
+      Coarse deploy health is <a href="${escapeHtml(healthUrl)}"><code>/health</code></a>.
+      For index scope, crawl timestamps, and register-join upstream status, ask
       <code>get_index_status</code> in your MCP client.
     </p>`;
 
   const footerInner = `
     <p>
       Unofficial project. Openings come from employer careers/ATS pages; register facts come from
-      <a href="https://ind.nl/en/public-register-recognised-sponsors/public-register-work">IND</a>
+      <a href="${escapeHtml(IND_PUBLIC_REGISTER_WORK_URL)}">IND</a>
       via hsm-mcp. Verify against primary sources before acting.
+    </p>
+    <p>
+      An independent experimental project, not affiliated with or endorsed by
+      <a href="${escapeHtml(IND_HOME_URL)}">IND</a>.
+      Source:
+      <a href="${escapeHtml(IND_PUBLIC_REGISTER_WORK_URL)}">Public register Work</a>
+      · Licence: <a href="${escapeHtml(LICENSE_URL)}">MIT</a>
+      · © 2026 <a href="${escapeHtml(AUTHOR_URL)}">Musavvir Ahmed</a>.
     </p>`;
 
   return `<!DOCTYPE html>
@@ -193,12 +193,12 @@ claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(h
       <h1>${escapeHtml(SERVER_NAME)}</h1>
       <p class="lede">${lede}</p>
     </header>
+    ${tuiBox("Connect servers first", connectInner)}
     ${tuiBox("Then just ask", `<ul>${listItems(EXAMPLE_JOB_ASKS)}</ul>`)}
-    ${tuiBox("Connect", connectInner)}
-    ${tuiBox("What the answers mean", `<ul>${listItems(READING_THE_ANSWERS_GIST)}</ul>`)}
-    ${tuiBox("How fresh is this?", freshnessInner)}
-    ${tuiBox("Tools", `<ul>${toolList()}</ul>`, true)}
-    ${tuiBox("Public paths", pathsInner, true)}
+    ${tuiBox("Tools", `<ul>${toolList()}</ul>`)}
+    ${tuiBox("Public paths", pathsInner)}
+    ${tuiBox("What will the answers mean", `<ul>${listItems(READING_THE_ANSWERS_GIST)}</ul>`)}
+    ${tuiBox("How reliable/updated are the answers?", freshnessInner)}
     <div class="tui-footer">${footerInner}</div>
   </div>
 </body>

@@ -10,6 +10,10 @@ export const IND_HSM_PERMIT_URL =
   "https://ind.nl/en/residence-permits/work/highly-skilled-migrant";
 export const IND_PUBLIC_REGISTER_WORK_URL =
   "https://ind.nl/en/public-register-recognised-sponsors/public-register-work";
+export const IND_HOME_URL = "https://ind.nl/";
+export const AUTHOR_URL = "https://musavvir.info/";
+export const LICENSE_URL =
+  "https://github.com/musavvirahmed/hsm-jobs-mcp/blob/main/LICENSE";
 
 export const V1_JOBS_TOOLS = [
   {
@@ -35,16 +39,15 @@ export const EXAMPLE_JOB_ASKS = [
 ] as const;
 
 /** Register-only ask — shown under Connect, not in the job-shaped list. */
-export const REGISTER_ONLY_ASK =
-  "Is Booking.com a recognised sponsor? (use hsm-mcp / ind-sponsors - not this server)";
+export const REGISTER_ONLY_ASK = "Is Booking.com a recognised sponsor?";
 
 /** Locked v1 example asks — job asks plus register-only redirect. */
 export const EXAMPLE_ASKS = [...EXAMPLE_JOB_ASKS, REGISTER_ONLY_ASK] as const;
 
 export const READING_THE_ANSWERS_GIST = [
-  "Salary, Dutch-required, and sponsorship signals stay separate. Unknown is a valid answer.",
-  "A match to the register is not a promise that this job will sponsor your transfer.",
-  "This server does not check pay against the IND salary minimum. You or your AI do that.",
+  "Salary, Dutch-required, and sponsorship signals stay separate. Unknown is valid when the job posting does not say.",
+  "The IND Public register Work lists recognised sponsors. A match to that register is not a promise that this job will sponsor your transfer.",
+  "This server does not check pay against the IND salary minimum. You should manually do that, or ask your AI model to do that.",
   "No results does not mean no Openings exist. Ask how complete the index is (get_index_status).",
 ] as const;
 
