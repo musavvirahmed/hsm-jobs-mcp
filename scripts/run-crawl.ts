@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createProductionCrawlRuntime } from "../src/crawl-runtime";
+import { createAshbyBoardFeedFetcher } from "../src/ashby-board";
+import { createPlaywrightPageGetter } from "../src/browser-harvest";
 import { runFullCareersPass } from "../src/full-careers-pass";
 import {
   DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
@@ -26,6 +28,8 @@ const PRODUCT_DESIGNER_CAREERS =
 
 async function main(): Promise<void> {
   const smoke = process.env.CRAWL_SMOKE === "1";
+  /** Fixture register + live board/HTML (private-release CI). Avoids loading the full hsm-mcp register. */
+  const fixtureRegister = smoke || process.env.CRAWL_FIXTURE_REGISTER === "1";
   const fullPass = process.env.CRAWL_FULL_PASS === "1";
   const maxAttempts = process.env.CRAWL_MAX_ATTEMPTS
     ? Number(process.env.CRAWL_MAX_ATTEMPTS)
@@ -33,7 +37,7 @@ async function main(): Promise<void> {
   const { index, targetLabel } = await createCrawlJobsIndex({ smoke });
   const now = () => new Date().toISOString();
 
-  if (smoke) {
+  if (fixtureRegister) {
     await index.recordWebsiteResolution({
       kvk: RENTMAN.kvk,
       official_website_host: "rentman.io",
@@ -56,11 +60,28 @@ async function main(): Promise<void> {
         },
         getBrowserPage: undefined as undefined | ((url: string) => Promise<PageGetResult | null>),
       }
-    : await (async () => {
-        const production = await createProductionCrawlRuntime({ env: process.env });
-        closeRuntime = production.close;
-        return production;
-      })();
+    : fixtureRegister
+      ? await (async () => {
+          const browser = await createPlaywrightPageGetter().catch(() => null);
+          closeRuntime = browser ? () => browser.close() : undefined;
+          return {
+            register: createFixtureRegister(
+              [RENTMAN],
+              process.env.CRAWL_REGISTER_AS_OF?.trim() || "2026-08-03",
+            ),
+            fetchBoardFeed: createAshbyBoardFeedFetcher(fetch),
+            providers: {
+              wikidata: { websiteForKvk: async () => null },
+              getPage: createHttpsPageGetter(fetch),
+            },
+            getBrowserPage: browser?.getPage,
+          };
+        })()
+      : await (async () => {
+          const production = await createProductionCrawlRuntime({ env: process.env });
+          closeRuntime = production.close;
+          return production;
+        })();
 
   const report = fullPass
     ? await runFullCareersPass({
@@ -95,6 +116,7 @@ async function main(): Promise<void> {
         re_partialed: report.re_partialed,
         missing_terminal_outcomes_before: report.missing_terminal_outcomes_before,
         missing_terminal_outcomes_after: report.missing_terminal_outcomes_after,
+        attempted: "attempted" in report ? report.attempted : null,
         crawl_failure_streak: "crawl_failure_streak" in report ? report.crawl_failure_streak : null,
         last_successful_crawl: snapshot.last_successful_crawl,
         index_scope: snapshot.index_scope,
@@ -111,8 +133,13 @@ async function main(): Promise<void> {
   }
 
   if (closeRuntime) {
+    console.error("[crawl] closing runtime…");
     await closeRuntime();
   }
+  console.error("[crawl] batch process exiting");
+  // Playwright/MCP sockets can keep the event loop alive after close(); exit so
+  // CI and the full-pass loop are not stuck after a successful crawl.
+  process.exit(process.exitCode ?? 0);
 }
 
 function smokeFetchBoardFeed() {

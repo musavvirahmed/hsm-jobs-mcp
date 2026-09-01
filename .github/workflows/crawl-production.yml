@@ -1,0 +1,135 @@
+# Production Opening refresh + register catch-up → remote D1.
+# Never runs on pull_request. Cron is a no-op until ENABLE_PRODUCTION_CRAWL_SCHEDULE=true.
+name: Production crawl
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      catch_up_max_attempts:
+        description: CRAWL_MAX_ATTEMPTS for register catch-up (default 200)
+        required: false
+        default: "200"
+        type: string
+
+concurrency:
+  group: production-crawl
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  SHARED_RELEASE_ORIGIN: https://hsmjobs.musavvir.work
+
+jobs:
+  opening-refresh:
+    if: github.repository == 'musavvirahmed/hsm-jobs-mcp' && (github.event_name == 'workflow_dispatch' || vars.ENABLE_PRODUCTION_CRAWL_SCHEDULE == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Opening refresh (remote D1)
+        env:
+          JOBS_INDEX_TARGET: remote-d1
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm run --silent crawl > refresh-report.json
+      - name: Probe public /health
+        run: curl -fsS "${SHARED_RELEASE_ORIGIN}/health"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: refresh-report
+          path: refresh-report.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  register-catch-up:
+    needs: opening-refresh
+    if: always() && !cancelled() && github.repository == 'musavvirahmed/hsm-jobs-mcp' && (github.event_name == 'workflow_dispatch' || vars.ENABLE_PRODUCTION_CRAWL_SCHEDULE == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Register catch-up (capped full pass)
+        env:
+          JOBS_INDEX_TARGET: remote-d1
+          CRAWL_MAX_ATTEMPTS: ${{ github.event.inputs.catch_up_max_attempts || '200' }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm run --silent crawl:full-pass > catchup-report.json
+      - name: Probe public /health
+        run: curl -fsS "${SHARED_RELEASE_ORIGIN}/health"
+      - name: Shared-release verify when pass is complete
+        run: |
+          set -euo pipefail
+          if [ ! -f catchup-report.json ]; then
+            echo "catchup-report.json missing — skip verify"
+            exit 0
+          fi
+          PASS="$(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const text = readFileSync("catchup-report.json", "utf8");
+            const start = text.indexOf("{");
+            const end = text.lastIndexOf("}");
+            if (start < 0 || end < start) {
+              console.error("no JSON object in catchup-report.json");
+              process.exit(2);
+            }
+            const value = JSON.parse(text.slice(start, end + 1));
+            process.stdout.write(String(value.index_scope?.pass ?? ""));
+          ')"
+          if [ "$PASS" = "full_careers_pass" ]; then
+            npm run shared-release:verify
+          else
+            echo "index_scope.pass=${PASS:-unknown} — skip shared-release:verify (honest partial is not a failure)"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: catchup-report
+          path: catchup-report.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  flag-repeated-failure:
+    needs: [opening-refresh, register-catch-up]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Flag if the previous completed production crawl also failed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PREV="$(gh run list --workflow=crawl-production.yml --repo "${GITHUB_REPOSITORY}" --limit 20 \
+            --json databaseId,conclusion,status \
+            --jq "[.[] | select(.status == \"completed\" and (.databaseId | tostring) != \"${GITHUB_RUN_ID}\")][0].conclusion // empty")"
+          if [ "$PREV" = "failure" ] || [ "$PREV" = "timed_out" ]; then
+            echo "::error::Repeated production crawl failure (previous completed run: ${PREV})"
+            exit 2
+          fi
+          echo "Previous completed run conclusion: ${PREV:-none} — not a repeated failure"

@@ -107,6 +107,9 @@ export function buildPrivateReleaseIntegrationEnv(args: {
 }): NodeJS.ProcessEnv {
   const env = { ...(args.env ?? process.env) };
   delete env.CRAWL_SMOKE;
+  // Live Ashby/HTML, but Rentman fixture register — do not load the full hsm-mcp Work
+  // register in CI (that hangs private-release:integration for ~30m).
+  env.CRAWL_FIXTURE_REGISTER = "1";
   env.JOBS_INDEX_TARGET = "local-d1";
   env.JOBS_INDEX_LOCAL_D1_STATE = relativeProjectPath(args.projectRoot, args.stateDir);
   env.PRIVATE_RELEASE_ORIGIN = privateReleaseOriginForPort(args.port);
