@@ -69,6 +69,17 @@ const DISCOVERY_STYLES = `
     color: var(--cyan);
     padding: 0 6px;
   }
+  .tui-box--muted {
+    border-color: var(--muted);
+    color: var(--muted);
+  }
+  .tui-box--muted::before {
+    color: var(--muted);
+  }
+  .tui-box--muted a { color: var(--muted); }
+  .tui-box--muted code, .tui-box--muted pre {
+    background: rgba(127, 127, 127, 0.1);
+  }
   p { margin: 0 0 0.75rem; }
   ul { margin: 0; padding-left: 1.2rem; }
   li { margin-bottom: 0.35rem; }
@@ -111,8 +122,9 @@ function toolList(): string {
   ).join("\n");
 }
 
-function tuiBox(title: string, inner: string): string {
-  return `<section class="tui-box" data-title="${escapeHtml(title)}">${inner}</section>`;
+function tuiBox(title: string, inner: string, muted = false): string {
+  const klass = muted ? "tui-box tui-box--muted" : "tui-box";
+  return `<section class="${klass}" data-title="${escapeHtml(title)}">${inner}</section>`;
 }
 
 export function renderDiscoveryPage(origin: string): string {
@@ -194,8 +206,8 @@ claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(h
     </header>
     ${tuiBox("Connect servers first", connectInner)}
     ${tuiBox("Then just ask", `<ul>${listItems(EXAMPLE_JOB_ASKS)}</ul>`)}
-    ${tuiBox("Tools", `<ul>${toolList()}</ul>`)}
-    ${tuiBox("Public paths", pathsInner)}
+    ${tuiBox("Tools", `<ul>${toolList()}</ul>`, true)}
+    ${tuiBox("Public paths", pathsInner, true)}
     ${tuiBox("What will the answers mean", `<ul>${listItems(READING_THE_ANSWERS_GIST)}</ul>`)}
     ${tuiBox("How reliable/updated are the answers?", freshnessInner)}
     <div class="tui-footer">${footerInner}</div>

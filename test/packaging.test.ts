@@ -123,7 +123,7 @@ test("GET / uses TUI discovery chrome (variant B winner)", async () => {
   expect(html).toContain('data-title="Public paths"');
   expect(html).toContain('data-title="What will the answers mean"');
   expect(html).toContain('data-title="How reliable/updated are the answers?"');
-  expect(html).not.toContain("tui-box--muted");
+  expect(html).toContain("tui-box--muted");
   expect(html).toContain("finite number of companies");
   expect(html).toContain("most likely will be asked to establish");
   expect(html).toContain("job openings");
