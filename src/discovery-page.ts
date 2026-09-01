@@ -85,11 +85,10 @@ const DISCOVERY_STYLES = `
     margin: 0 0 0.75rem;
   }
   pre code { background: none; padding: 0; }
-  .muted { color: var(--muted); font-size: 0.92em; }
+  .muted { color: var(--muted); }
   .tui-footer {
     color: var(--muted);
     margin-top: 1rem;
-    font-size: 0.92em;
   }
 `;
 
