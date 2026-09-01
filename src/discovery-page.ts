@@ -177,11 +177,6 @@ claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(h
 
   const footerInner = `
     <p>
-      Unofficial project. Openings come from employer careers/ATS pages; register facts come from
-      <a href="${escapeHtml(IND_PUBLIC_REGISTER_WORK_URL)}">IND</a>
-      via hsm-mcp. Verify against primary sources before acting.
-    </p>
-    <p>
       An independent experimental project, not affiliated with or endorsed by
       <a href="${escapeHtml(IND_HOME_URL)}">IND</a>.
       Source:
