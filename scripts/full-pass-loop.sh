@@ -110,13 +110,12 @@ while true; do
   CRAWL_MAX_ATTEMPTS="${BATCH}" \
     JOBS_INDEX_TARGET="${TARGET}" \
     CRAWL_FULL_PASS=1 \
-    npm run --silent crawl:full-pass >"${tmp_out}" 2>"$err_fifo"
+    npm run --silent crawl:full-pass > >(tee -a "$LOG_FILE" "$tmp_out") 2>"$err_fifo"
   rc=$?
   set -e
 
   wait "$tee_pid" 2>/dev/null || true
   rm -f "$err_fifo"
-  tee -a "$LOG_FILE" <"${tmp_out}"
 
   if [[ "$rc" -ne 0 ]]; then
     consec_fails=$((consec_fails + 1))

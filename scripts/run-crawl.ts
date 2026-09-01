@@ -111,6 +111,7 @@ async function main(): Promise<void> {
         ),
       });
 
+  console.error("[crawl] writing index snapshot…");
   const snapshot = await index.snapshot();
   console.log(
     JSON.stringify(
@@ -138,8 +139,13 @@ async function main(): Promise<void> {
   }
 
   if (closeRuntime) {
+    console.error("[crawl] closing runtime…");
     await closeRuntime();
   }
+  console.error("[crawl] batch process exiting");
+  // Playwright/MCP sockets can keep the event loop alive after close(); exit so
+  // the full-pass loop can start the next batch.
+  process.exit(process.exitCode ?? 0);
 }
 
 function smokeFetchBoardFeed() {

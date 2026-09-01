@@ -1,3 +1,4 @@
+import { awaitWithTimeout, DEFAULT_RUNTIME_CLOSE_TIMEOUT_MS } from "./fetch-timeout";
 import { PRODUCT_USER_AGENT } from "./robots";
 import type { PageGetResult } from "./website-resolution";
 
@@ -37,8 +38,25 @@ export async function createPlaywrightPageGetter(): Promise<PlaywrightPageGetter
       }
     },
     close: async () => {
-      await context.close();
-      await browser.close();
+      const killBrowser = (): void => {
+        try {
+          browser.process()?.kill("SIGKILL");
+        } catch {
+          /* already gone */
+        }
+      };
+      try {
+        await awaitWithTimeout(
+          (async () => {
+            await context.close();
+            await browser.close();
+          })(),
+          DEFAULT_RUNTIME_CLOSE_TIMEOUT_MS,
+          "playwright close",
+        );
+      } catch {
+        killBrowser();
+      }
     },
   };
 }

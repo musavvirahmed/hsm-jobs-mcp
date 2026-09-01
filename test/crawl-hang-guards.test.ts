@@ -96,3 +96,12 @@ test("listMissingTerminalOutcomeKvks uses bulk list, not per-KvK lookups", async
   expect(missing).toHaveLength(399);
   expect(missing).not.toContain("00000001");
 });
+
+test("awaitWithTimeout fails fast on a hanging promise", async () => {
+  const { awaitWithTimeout } = await import("../src/fetch-timeout");
+  const started = Date.now();
+  await expect(
+    awaitWithTimeout(new Promise(() => {}), 40, "post-done close"),
+  ).rejects.toMatchObject({ name: "TimeoutError" });
+  expect(Date.now() - started).toBeLessThan(500);
+});

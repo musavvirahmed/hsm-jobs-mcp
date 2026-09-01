@@ -1,5 +1,9 @@
 import { createAshbyBoardFeedFetcher } from "./ashby-board";
-import { createPlaywrightPageGetter } from "./browser-harvest";
+import {
+  createPlaywrightPageGetter,
+  type PlaywrightPageGetter,
+} from "./browser-harvest";
+import { awaitWithTimeout, DEFAULT_RUNTIME_CLOSE_TIMEOUT_MS } from "./fetch-timeout";
 import {
   createNetworkHsmMcpRegisterClient,
   createStreamableHsmMcpRegisterTransport,
@@ -22,6 +26,10 @@ export type ProductionCrawlRuntimeOptions = {
   registerClient?: HsmRegisterClient;
   hsmMcpTransportOptions?: StreamableHsmMcpClientOptions;
   fetchImpl?: typeof fetch;
+  /** Injected in tests; default launches Chromium lazily on first last-resort fetch. */
+  createPageGetter?: () => Promise<PlaywrightPageGetter>;
+  /** Override shutdown race (default 8s). */
+  closeTimeoutMs?: number;
 };
 
 export type ProductionCrawlRuntime = {
@@ -43,7 +51,14 @@ export async function createProductionCrawlRuntime(
     origin: options.env?.HSM_MCP_ORIGIN?.trim() || options.hsmMcpTransportOptions?.origin,
   });
   const registerClient = options.registerClient ?? createNetworkHsmMcpRegisterClient(transport);
-  const browser = await createPlaywrightPageGetter().catch(() => null);
+  const createPageGetter = options.createPageGetter ?? createPlaywrightPageGetter;
+  const closeTimeoutMs = options.closeTimeoutMs ?? DEFAULT_RUNTIME_CLOSE_TIMEOUT_MS;
+  let browser: PlaywrightPageGetter | null | undefined;
+  const ensureBrowser = async (): Promise<PlaywrightPageGetter | null> => {
+    if (browser !== undefined) return browser;
+    browser = await createPageGetter().catch(() => null);
+    return browser;
+  };
   return {
     register: createHsmMcpRegisterSource(registerClient),
     providers: {
@@ -51,11 +66,32 @@ export async function createProductionCrawlRuntime(
       getPage: createHttpsPageGetter(fetchImpl),
     },
     fetchBoardFeed: createAshbyBoardFeedFetcher(fetchImpl),
-    getBrowserPage: browser?.getPage,
+    getBrowserPage: async (url) => {
+      const instance = await ensureBrowser();
+      return instance ? instance.getPage(url) : null;
+    },
     close: async () => {
-      await transport.close();
+      try {
+        await awaitWithTimeout(
+          transport.close(),
+          closeTimeoutMs,
+          "hsm-mcp transport close",
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[crawl] ${message} — continuing shutdown`);
+      }
       if (browser) {
-        await browser.close();
+        try {
+          await awaitWithTimeout(
+            browser.close(),
+            closeTimeoutMs,
+            "playwright close",
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(`[crawl] ${message} — continuing shutdown`);
+        }
       }
     },
   };

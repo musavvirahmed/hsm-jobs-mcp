@@ -176,7 +176,7 @@ tmux new -s crawl
 2. Detach with `Ctrl+b` then `d`. Reattach later with `tmux attach -t crawl`.
 3. Stop safely with `Ctrl+C` in the session, or `tmux kill-session -t crawl`. Outcomes already written to remote D1 are kept.
 4. Confirm a single crawl is running: `pgrep -fl 'full-pass-loop|run-crawl'` should show one loop (plus `caffeinate`) and one `run-crawl` / `tsx` pair.
-5. Logs go to `.scratch/full-pass-logs/` (gitignored). `[crawl]` progress lines stream live on stderr while each batch runs (also appended to the log).
+5. Logs go to `.scratch/full-pass-logs/` (gitignored). `[crawl]` progress lines stream live on stderr. After `done:`, expect `writing index snapshot…`, the JSON report, then `closing runtime…` / `batch process exiting` within ~10 seconds. A long silence after `done:` with no snapshot line is a hang — stop and restart the loop (outcomes already in D1 are kept).
 
 Defaults: `CRAWL_MAX_ATTEMPTS=200`, 30s pause between successful batches, 120s backoff after a failed run, abort after 10 consecutive failures. The script wraps itself in `caffeinate -is` on macOS so sleep does not pause the crawl.
 

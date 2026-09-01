@@ -41,6 +41,52 @@ test("production crawl runtime uses hsm-mcp register source and real website pro
   await runtime.close();
 });
 
+test("production runtime does not launch Playwright until last-resort getPage", async () => {
+  let launches = 0;
+  const runtime = await createProductionCrawlRuntime({
+    registerClient: {
+      async getRegisterStatus() {
+        return { ind_last_updated: "2026-08-03" };
+      },
+      async listSponsors() {
+        return [{ kvk: "60733144", name: "Rentman B.V." }];
+      },
+    },
+    createPageGetter: async () => {
+      launches += 1;
+      return {
+        getPage: async () => null,
+        close: async () => {},
+      };
+    },
+  });
+  expect(launches).toBe(0);
+  await runtime.close();
+  expect(launches).toBe(0);
+});
+
+test("runtime close returns when Playwright close hangs", async () => {
+  const runtime = await createProductionCrawlRuntime({
+    registerClient: {
+      async getRegisterStatus() {
+        return { ind_last_updated: "2026-08-03" };
+      },
+      async listSponsors() {
+        return [{ kvk: "60733144", name: "Rentman B.V." }];
+      },
+    },
+    closeTimeoutMs: 40,
+    createPageGetter: async () => ({
+      getPage: async () => null,
+      close: () => new Promise(() => {}),
+    }),
+  });
+  await runtime.getBrowserPage?.("https://example.test/");
+  const started = Date.now();
+  await runtime.close();
+  expect(Date.now() - started).toBeLessThan(500);
+});
+
 test("mock hsm-mcp transport can gate IND HTML without live network", async () => {
   const { createNetworkHsmMcpRegisterClient } = await import("../src/hsm-mcp-register-client");
   const client = createNetworkHsmMcpRegisterClient({
