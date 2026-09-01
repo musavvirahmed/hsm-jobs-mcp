@@ -94,6 +94,43 @@ Crawl JSON includes `jobs_index_target: "remote-d1"`.
 The runner applies remote D1 migrations on first writable connect.
 Local private release keeps `JOBS_INDEX_TARGET=local-d1` (default).
 
+### D1 free-tier read budget (remote crawl)
+
+Production crawl with `JOBS_INDEX_TARGET=remote-d1` talks to Cloudflare D1 over the **REST API**.
+Every query counts toward your account **daily row read** quota.
+
+On **Workers Free**, D1 allows about **5,000,000 row reads per day**.
+The quota resets at **midnight UTC** (not your local midnight).
+When you exceed it, D1 returns error **7500** and further reads fail until the reset.
+Cloudflare may email you when the limit is hit.
+
+**Why a long full-pass run can hit the cap**
+
+| Source | Effect |
+| ------ | ------ |
+| Each `crawl:full-pass` / loop iteration | New Node process; remote D1 migrations run on writable connect |
+| Bulk missing scan | Reads all rows in `terminal_careers_outcomes` (and related tables) each batch |
+| Website + ladder work | Several reads and writes per KvK attempted |
+| End-of-batch snapshot | Extra reads for crawl JSON / `index_scope` |
+
+A multi-hour or overnight **full-pass loop** can consume the whole daily budget before `missing_terminal_outcomes_after` reaches `0`.
+That is an infrastructure limit, not a crawl logic bug.
+
+**Symptoms**
+
+- Crawl or loop fails immediately with `rows_read limit` or D1 API error **7500**
+- `wrangler d1 migrations apply hsm-jobs-index --remote failed` at the start of a batch
+- Loop retries every 120s (`consecutive failures: N/10`) with the same error — **stop the loop**; retries do not help until the quota resets
+
+**What to do**
+
+1. **Stop** `./scripts/full-pass-loop.sh` (Ctrl+C). Outcomes already written to remote D1 are kept.
+2. **Wait** until after midnight UTC, or **upgrade** to [Workers Paid](https://developers.cloudflare.com/workers/platform/pricing/) for much higher D1 limits.
+3. **Resume** with the same commands on `implement/operator-shared-release-runbook` (or merged main). The runner skips KvKs that already have a terminal outcome.
+4. **Plan multi-day catch-up** on Free if ~8k+ KvKs remain: run batches until you approach the cap, stop, continue the next UTC day.
+
+See [D1 limits](https://developers.cloudflare.com/d1/platform/limits/) for current quotas and pricing.
+
 ### Live register and website resolution
 
 Non-smoke `npm run crawl:full-pass` loads the current Work register through **hsm-mcp**.
@@ -149,6 +186,7 @@ Catch-up uses the same stop/resume commands.
 
 Use this when you want capped batches to keep running overnight without restarting by hand.
 Run **only one** loop at a time. Two loops writing the same remote D1 fight each other.
+On **Workers Free**, a long loop may hit the [D1 daily read cap](#d1-free-tier-read-budget-remote-crawl) before the pass finishes — stop and resume after midnight UTC or upgrade the account.
 
 1. Start (or reopen) a tmux session, then run the loop.
 
