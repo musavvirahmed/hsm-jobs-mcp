@@ -193,3 +193,26 @@ test("developer README documents operator loop and architecture", () => {
   expect(developerReadme).toMatch(/\| `\/mcp` \|/);
   expect(developerReadme).toMatch(/\| `\/health` \|/);
 });
+
+test("developer README and workflows document gated production crawl", () => {
+  const production = readFileSync(
+    resolve(import.meta.dirname, "../.github/workflows/crawl-production.yml"),
+    "utf8",
+  );
+  const smoke = readFileSync(
+    resolve(import.meta.dirname, "../.github/workflows/crawl.yml"),
+    "utf8",
+  );
+  expect(production).toMatch(/name:\s*Production crawl/);
+  expect(production).not.toMatch(/^on:[\s\S]*?^\s+pull_request:/m);
+  expect(production).toContain("ENABLE_PRODUCTION_CRAWL_SCHEDULE");
+  expect(production).toContain("playwright install");
+  expect(production).toContain("JOBS_INDEX_TARGET: remote-d1");
+  expect(production).toContain("catch_up_max_attempts");
+  expect(smoke).toContain("CRAWL_SMOKE");
+  expect(smoke).not.toContain("JOBS_INDEX_TARGET: remote-d1");
+  expect(developerReadme).toMatch(/Automated crawl \(production schedule\)/);
+  expect(developerReadme).toContain("ENABLE_PRODUCTION_CRAWL_SCHEDULE");
+  expect(developerReadme).toContain("crawl-production.yml");
+  expect(developerReadme).toContain("Human operator");
+});
