@@ -51,40 +51,106 @@ export function remoteD1ConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Rem
   return { accountId: accountId!, databaseId: databaseId!, apiToken: apiToken! };
 }
 
+const TRANSIENT_REMOTE_D1_CODES = new Set([
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+]);
+
+const DEFAULT_REMOTE_D1_QUERY_ATTEMPTS = 4;
+const REMOTE_D1_RETRY_BACKOFF_MS = [250, 750, 2000];
+
+export type RemoteD1QueryClientOptions = {
+  maxAttempts?: number;
+  sleep?: (ms: number) => Promise<void>;
+};
+
+export function isTransientRemoteD1Failure(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const err = current as { name?: string; message?: string; code?: string; cause?: unknown };
+    if (typeof err.code === "string" && TRANSIENT_REMOTE_D1_CODES.has(err.code)) {
+      return true;
+    }
+    if (err.name === "SocketError" || err.name === "TimeoutError") {
+      return true;
+    }
+    if (err.name === "TypeError" && typeof err.message === "string" && /fetch failed/i.test(err.message)) {
+      return true;
+    }
+    current = err.cause;
+  }
+  return false;
+}
+
+function isRetryableHttpStatus(status: number): boolean {
+  return status === 429 || status === 502 || status === 503 || status === 504;
+}
+
+async function defaultSleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function createCloudflareRemoteD1QueryClient(
   config: RemoteD1Config,
   fetchFn: typeof fetch = fetch,
+  options: RemoteD1QueryClientOptions = {},
 ): RemoteD1QueryClient {
   const baseUrl = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/d1/database/${config.databaseId}/query`;
+  const maxAttempts = options.maxAttempts ?? DEFAULT_REMOTE_D1_QUERY_ATTEMPTS;
+  const sleep = options.sleep ?? defaultSleep;
   return {
     async query(sql, params = []) {
-      const response = await fetchFn(baseUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${config.apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ sql, params }),
-      });
-      const body = (await response.json()) as {
-        success?: boolean;
-        errors?: Array<{ message?: string }>;
-        result?: Array<{ results?: Record<string, unknown>[]; success?: boolean }>;
-      };
-      if (!response.ok || !body.success) {
-        const detail =
-          body.errors?.map((error) => error.message).filter(Boolean).join("; ") ||
-          `HTTP ${response.status}`;
-        throw new Error(`remote D1 query failed: ${detail}`);
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const response = await fetchFn(baseUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${config.apiToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ sql, params }),
+          });
+          if (isRetryableHttpStatus(response.status) && attempt < maxAttempts) {
+            await sleep(REMOTE_D1_RETRY_BACKOFF_MS[attempt - 1] ?? 2000);
+            continue;
+          }
+          const body = (await response.json()) as {
+            success?: boolean;
+            errors?: Array<{ message?: string }>;
+            result?: Array<{ results?: Record<string, unknown>[]; success?: boolean }>;
+          };
+          if (!response.ok || !body.success) {
+            const detail =
+              body.errors?.map((error) => error.message).filter(Boolean).join("; ") ||
+              `HTTP ${response.status}`;
+            throw new Error(`remote D1 query failed: ${detail}`);
+          }
+          const batch = body.result?.[0];
+          if (!batch?.success) {
+            throw new Error("remote D1 query returned an unsuccessful batch result");
+          }
+          return {
+            results: batch.results ?? [],
+            success: true,
+          };
+        } catch (error) {
+          lastError = error;
+          if (!isTransientRemoteD1Failure(error) || attempt >= maxAttempts) {
+            throw error;
+          }
+          await sleep(REMOTE_D1_RETRY_BACKOFF_MS[attempt - 1] ?? 2000);
+        }
       }
-      const batch = body.result?.[0];
-      if (!batch?.success) {
-        throw new Error("remote D1 query returned an unsuccessful batch result");
-      }
-      return {
-        results: batch.results ?? [],
-        success: true,
-      };
+      throw lastError;
     },
   };
 }

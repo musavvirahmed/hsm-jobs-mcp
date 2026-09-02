@@ -216,3 +216,10 @@ test("developer README and workflows document gated production crawl", () => {
   expect(developerReadme).toContain("crawl-production.yml");
   expect(developerReadme).toContain("Human operator");
 });
+
+test("crawl CLI always process.exit after success or failure so Playwright cannot hang the batch", () => {
+  const crawl = readFileSync(resolve(import.meta.dirname, "../scripts/run-crawl.ts"), "utf8");
+  expect(crawl).toMatch(/catch \(error\)/);
+  expect(crawl).toMatch(/process\.exit\(exitCode\)/);
+  expect(crawl).toMatch(/closing runtime/);
+});

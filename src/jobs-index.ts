@@ -99,6 +99,8 @@ export interface WritableJobsIndex extends JobsIndex {
   }): Promise<void>;
   getOfficialWebsite(kvk: string): Promise<string | null>;
   getTerminalOutcome(kvk: string): Promise<TerminalCareersOutcome | null>;
+  /** All KvKs that already have a recorded terminal careers outcome (one round-trip). */
+  listTerminalOutcomeKvks(): Promise<string[]>;
   recordTerminalOutcome(input: {
     kvk: string;
     outcome: TerminalCareersOutcomeKind;

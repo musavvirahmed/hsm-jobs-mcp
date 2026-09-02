@@ -13,7 +13,13 @@ import {
   parseJobsIndexTarget,
 } from "../src/operator-jobs-index";
 import type { RemoteD1QueryClient } from "../src/remote-d1-jobs-index";
-import { createRemoteD1WritableJobsIndex, remoteD1ConfigFromEnv } from "../src/remote-d1-jobs-index";
+import {
+  createCloudflareRemoteD1QueryClient,
+  createRemoteD1WritableJobsIndex,
+  isTransientRemoteD1Failure,
+  remoteD1ConfigFromEnv,
+} from "../src/remote-d1-jobs-index";
+import { listMissingTerminalOutcomeKvks } from "../src/index-pass";
 
 const SAMPLE_OPENING = FIXTURE_OPENINGS[0]!;
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "../migrations");
@@ -156,6 +162,83 @@ test("createRemoteD1WritableJobsIndex uses Cloudflare REST when stub fetch is wi
   expect(calls).toHaveLength(1);
   expect(calls[0]?.sql).toMatch(/UPDATE index_meta SET last_successful_crawl/i);
   expect(calls[0]?.params).toEqual(["2026-08-29T00:00:00.000Z"]);
+});
+
+test("listMissingTerminalOutcomeKvks loads recorded KvKs in one query", async () => {
+  const client = createStubRemoteD1QueryClient();
+  const index = await createRemoteD1WritableJobsIndex({
+    client,
+    skipMigrations: true,
+  });
+  await index.recordTerminalOutcome({
+    kvk: "11111111",
+    outcome: "unresolved_website",
+    official_website_host: null,
+    now: "2026-09-02T00:00:00.000Z",
+  });
+  const sql: string[] = [];
+  const counting: RemoteD1QueryClient = {
+    async query(statement, params) {
+      sql.push(statement);
+      return client.query(statement, params);
+    },
+  };
+  const countedIndex = await createRemoteD1WritableJobsIndex({
+    client: counting,
+    skipMigrations: true,
+  });
+  const missing = await listMissingTerminalOutcomeKvks(countedIndex, [
+    { kvk: "11111111", name: "Done B.V." },
+    { kvk: "22222222", name: "Open B.V." },
+    { kvk: "33333333", name: "Also open B.V." },
+  ]);
+  expect(missing).toEqual(["22222222", "33333333"]);
+  expect(sql.filter((item) => /FROM terminal_careers_outcomes/i.test(item))).toHaveLength(1);
+  expect(sql.some((item) => /WHERE kvk = \?1/i.test(item))).toBe(false);
+});
+
+test("Cloudflare remote D1 client retries UND_ERR_SOCKET then succeeds", async () => {
+  let attempts = 0;
+  const fetchFn: typeof fetch = async () => {
+    attempts += 1;
+    if (attempts < 3) {
+      const cause = Object.assign(new Error("other side closed"), {
+        code: "UND_ERR_SOCKET",
+        name: "SocketError",
+      });
+      throw Object.assign(new TypeError("fetch failed"), { cause });
+    }
+    return new Response(
+      JSON.stringify({
+        success: true,
+        result: [{ success: true, results: [{ n: 1 }] }],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+  const client = createCloudflareRemoteD1QueryClient(
+    {
+      accountId: "acct-test",
+      databaseId: "db-test-0000-0000-0000-000000000001",
+      apiToken: "token-test",
+    },
+    fetchFn,
+    { sleep: async () => undefined },
+  );
+  const result = await client.query("SELECT 1 AS n");
+  expect(attempts).toBe(3);
+  expect(result.results).toEqual([{ n: 1 }]);
+});
+
+test("isTransientRemoteD1Failure matches the Cloudflare socket hang we saw in production crawl", () => {
+  const cause = Object.assign(new Error("other side closed"), {
+    code: "UND_ERR_SOCKET",
+    name: "SocketError",
+  });
+  expect(isTransientRemoteD1Failure(Object.assign(new TypeError("fetch failed"), { cause }))).toBe(
+    true,
+  );
+  expect(isTransientRemoteD1Failure(new Error("remote D1 query failed: HTTP 400"))).toBe(false);
 });
 
 function createStubRemoteD1QueryClient(): RemoteD1QueryClient {
