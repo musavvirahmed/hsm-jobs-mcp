@@ -215,6 +215,11 @@ test("developer README and workflows document gated production crawl", () => {
   expect(developerReadme).toContain("ENABLE_PRODUCTION_CRAWL_SCHEDULE");
   expect(developerReadme).toContain("crawl-production.yml");
   expect(developerReadme).toContain("Human operator");
+  expect(developerReadme).toMatch(/fixture smoke|Out-of-band crawl/i);
+  expect(developerReadme).toMatch(/90-minute|90m/);
+  expect(developerReadme).toMatch(/catchup-report/);
+  expect(developerReadme).toMatch(/rows_read|Workers Paid/);
+  expect(developerReadme).toMatch(/local burst|CRAWL_MAX_ATTEMPTS=500/);
 });
 
 test("crawl CLI always process.exit after success or failure so Playwright cannot hang the batch", () => {
