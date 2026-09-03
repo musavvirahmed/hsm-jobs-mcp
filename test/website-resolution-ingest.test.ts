@@ -8,7 +8,7 @@ import {
   type WebsiteResolutionProviders,
 } from "../src/opening-ingest";
 import { createFixtureRegister, createHsmMcpRegisterSource } from "../src/register-source";
-import { createHttpsPageGetter, createWikidataSparqlLookup } from "../src/website-resolution";
+import { createHttpsPageGetter, createWikidataSparqlLookup, resolveOfficialWebsite } from "../src/website-resolution";
 import { createEmptyWritableJobsIndex } from "./sqlite-writable-index";
 
 const RENTMAN = { kvk: "60733144", name: "Rentman B.V." };
@@ -480,6 +480,70 @@ test("Wikidata SPARQL lookup is used as the first cascade step", async () => {
   expect(report.results[0]).toMatchObject({
     official_website_host: "www.adyen.com",
     resolved_via: "wikidata",
+  });
+});
+
+test("Wikidata SPARQL socket failures return null after retries (do not abort)", async () => {
+  let attempts = 0;
+  const wikidata = createWikidataSparqlLookup(async () => {
+    attempts += 1;
+    const err = new TypeError("fetch failed");
+    (err as Error & { cause: { code: string; name: string } }).cause = {
+      code: "UND_ERR_SOCKET",
+      name: "SocketError",
+    };
+    throw err;
+  });
+  expect(await wikidata.websiteForKvk("60733144")).toBeNull();
+  expect(attempts).toBe(3);
+});
+
+test("Wikidata SPARQL transient failure then success retries", async () => {
+  let attempts = 0;
+  const wikidata = createWikidataSparqlLookup(async () => {
+    attempts += 1;
+    if (attempts < 2) {
+      const err = new TypeError("fetch failed");
+      (err as Error & { cause: { code: string } }).cause = { code: "UND_ERR_SOCKET" };
+      throw err;
+    }
+    return new Response(
+      JSON.stringify({
+        results: { bindings: [{ website: { value: "https://rentman.io/" } }] },
+      }),
+      { headers: { "content-type": "application/sparql-results+json" } },
+    );
+  });
+  expect(await wikidata.websiteForKvk("60733144")).toBe("https://rentman.io/");
+  expect(attempts).toBe(2);
+});
+
+test("resolveOfficialWebsite continues cascade when wikidata provider throws", async () => {
+  const resolved = await resolveOfficialWebsite(
+    { kvk: "60733144", name: "Rentman B.V." },
+    {
+      wikidata: {
+        async websiteForKvk() {
+          throw new TypeError("fetch failed");
+        },
+      },
+      getPage: async (url) => {
+        if (String(url).includes("rentman.")) {
+          return {
+            status: 200,
+            finalUrl: "https://rentman.nl/",
+            tlsValid: true,
+            bodyText: "<html>Rentman</html>",
+          };
+        }
+        return null;
+      },
+    },
+    null,
+  );
+  expect(resolved).toMatchObject({
+    official_website_host: "rentman.nl",
+    resolved_via: "domain_guess",
   });
 });
 

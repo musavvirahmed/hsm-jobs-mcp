@@ -119,7 +119,14 @@ export async function resolveOfficialWebsite(
     }
   }
 
-  const wiki = await providers.wikidata.websiteForKvk(sponsor.kvk);
+  // Wikidata (and any custom lookup) may throw on transient network errors;
+  // treat that as "no wiki hit" and continue the cascade (domain_guess / search).
+  let wiki: string | null = null;
+  try {
+    wiki = await providers.wikidata.websiteForKvk(sponsor.kvk);
+  } catch {
+    wiki = null;
+  }
   if (wiki) {
     const host = await acceptCandidate(wiki, sponsor, providers.getPage);
     if (host) {
@@ -135,7 +142,12 @@ export async function resolveOfficialWebsite(
   }
 
   if (providers.search) {
-    const candidates = await providers.search.candidateUrls(sponsor.name, sponsor.kvk);
+    let candidates: string[] = [];
+    try {
+      candidates = await providers.search.candidateUrls(sponsor.name, sponsor.kvk);
+    } catch {
+      candidates = [];
+    }
     for (const url of candidates) {
       const host = await acceptCandidate(url, sponsor, providers.getPage);
       if (host) {
@@ -287,6 +299,36 @@ function normalizeHost(value: string): string | null {
   return host.length > 0 ? host : null;
 }
 
+const WIKIDATA_SPARQL_ATTEMPTS = 3;
+const WIKIDATA_SPARQL_RETRY_BACKOFF_MS = [250, 750];
+
+function isTransientFetchFailure(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const err = current as { name?: string; message?: string; code?: string; cause?: unknown };
+    if (
+      typeof err.code === "string" &&
+      /^(ETIMEDOUT|ECONNRESET|ECONNREFUSED|EPIPE|UND_ERR_SOCKET|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT)$/.test(
+        err.code,
+      )
+    ) {
+      return true;
+    }
+    if (err.name === "SocketError" || err.name === "TimeoutError") return true;
+    if (err.name === "TypeError" && typeof err.message === "string" && /fetch failed/i.test(err.message)) {
+      return true;
+    }
+    current = err.cause;
+  }
+  return false;
+}
+
+async function sleepMs(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function createWikidataSparqlLookup(
   fetchImpl: typeof fetch,
 ): WebsiteResolutionProviders["wikidata"] {
@@ -306,17 +348,28 @@ export function createWikidataSparqlLookup(
 async function sparqlOfficialWebsite(kvkId: string, fetchImpl: typeof fetch): Promise<string | null> {
   const query = `SELECT ?website WHERE { ?item wdt:P3220 "${kvkId}" . ?item wdt:P856 ?website . } LIMIT 1`;
   const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(query)}`;
-  const response = await fetchImpl(url, {
-    headers: {
-      Accept: "application/sparql-results+json",
-      "User-Agent": "hsm-jobs-mcp/0.1 (website-resolution; P3220 lookup)",
-    },
-  });
-  if (!response.ok) return null;
-  const payload = (await response.json()) as {
-    results?: { bindings?: Array<{ website?: { value?: string } }> };
-  };
-  return payload.results?.bindings?.[0]?.website?.value ?? null;
+  for (let attempt = 1; attempt <= WIKIDATA_SPARQL_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetchImpl(url, {
+        headers: {
+          Accept: "application/sparql-results+json",
+          "User-Agent": "hsm-jobs-mcp/0.1 (website-resolution; P3220 lookup)",
+        },
+      });
+      if (!response.ok) return null;
+      const payload = (await response.json()) as {
+        results?: { bindings?: Array<{ website?: { value?: string } }> };
+      };
+      return payload.results?.bindings?.[0]?.website?.value ?? null;
+    } catch (error) {
+      // Match createHttpsPageGetter: network failure means "no wiki hit", not batch abort.
+      if (!isTransientFetchFailure(error) || attempt === WIKIDATA_SPARQL_ATTEMPTS) {
+        return null;
+      }
+      await sleepMs(WIKIDATA_SPARQL_RETRY_BACKOFF_MS[attempt - 1] ?? 750);
+    }
+  }
+  return null;
 }
 
 export function createHttpsPageGetter(fetchImpl: typeof fetch): WebsiteResolutionProviders["getPage"] {
