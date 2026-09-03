@@ -62,8 +62,11 @@ const TRANSIENT_REMOTE_D1_CODES = new Set([
   "UND_ERR_BODY_TIMEOUT",
 ]);
 
-const DEFAULT_REMOTE_D1_QUERY_ATTEMPTS = 4;
-const REMOTE_D1_RETRY_BACKOFF_MS = [250, 750, 2000];
+// Remote D1 writes happen inside long-running crawl batches.
+// Cloudflare connectivity is usually transient, but a single connect timeout
+// should not abort the whole batch; we retry at the REST client layer.
+const DEFAULT_REMOTE_D1_QUERY_ATTEMPTS = 6;
+const REMOTE_D1_RETRY_BACKOFF_MS = [500, 1000, 2000, 4000, 8000];
 
 export type RemoteD1QueryClientOptions = {
   maxAttempts?: number;
@@ -104,7 +107,11 @@ export function createCloudflareRemoteD1QueryClient(
   options: RemoteD1QueryClientOptions = {},
 ): RemoteD1QueryClient {
   const baseUrl = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/d1/database/${config.databaseId}/query`;
-  const maxAttempts = options.maxAttempts ?? DEFAULT_REMOTE_D1_QUERY_ATTEMPTS;
+  const envMaxAttemptsRaw = process.env.REMOTE_D1_QUERY_MAX_ATTEMPTS;
+  const envMaxAttempts =
+    envMaxAttemptsRaw && envMaxAttemptsRaw.trim() ? Number(envMaxAttemptsRaw) : null;
+  const maxAttempts =
+    options.maxAttempts ?? (envMaxAttempts && Number.isFinite(envMaxAttempts) ? envMaxAttempts : DEFAULT_REMOTE_D1_QUERY_ATTEMPTS);
   const sleep = options.sleep ?? defaultSleep;
   return {
     async query(sql, params = []) {
