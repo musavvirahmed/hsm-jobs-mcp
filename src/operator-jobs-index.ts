@@ -6,6 +6,7 @@ import type { JobsIndex, WritableJobsIndex } from "./jobs-index";
 import {
   createRemoteD1JobsIndex,
   createRemoteD1WritableJobsIndex,
+  remoteD1SkipMigrationsFromEnv,
   type RemoteD1QueryClient,
 } from "./remote-d1-jobs-index";
 import {
@@ -118,7 +119,7 @@ export async function createOperatorWritableJobsIndex(
     return createRemoteD1WritableJobsIndex({
       projectRoot: options.projectRoot,
       client: options.remoteD1Client,
-      skipMigrations: options.skipRemoteD1Migrations,
+      skipMigrations: options.skipRemoteD1Migrations ?? remoteD1SkipMigrationsFromEnv(),
     });
   }
   if (target.kind === "sqlite") {

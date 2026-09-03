@@ -17,7 +17,9 @@ import {
   createCloudflareRemoteD1QueryClient,
   createRemoteD1WritableJobsIndex,
   isTransientRemoteD1Failure,
+  isTransientRemoteD1MigrationFailure,
   remoteD1ConfigFromEnv,
+  remoteD1SkipMigrationsFromEnv,
 } from "../src/remote-d1-jobs-index";
 import { listMissingTerminalOutcomeKvks } from "../src/index-pass";
 
@@ -239,6 +241,35 @@ test("isTransientRemoteD1Failure matches the Cloudflare socket hang we saw in pr
     true,
   );
   expect(isTransientRemoteD1Failure(new Error("remote D1 query failed: HTTP 400"))).toBe(false);
+});
+
+test("REMOTE_D1_SKIP_MIGRATIONS skips wrangler migrate on remote-d1 writable open", async () => {
+  const previous = process.env.REMOTE_D1_SKIP_MIGRATIONS;
+  process.env.REMOTE_D1_SKIP_MIGRATIONS = "1";
+  try {
+    expect(remoteD1SkipMigrationsFromEnv()).toBe(true);
+    const client = createStubRemoteD1QueryClient();
+    // Would throw if wrangler migrate ran (no network / no creds in this unit test).
+    const index = await createRemoteD1WritableJobsIndex({
+      client,
+      // skipMigrations intentionally omitted — env must suppress migrate.
+    });
+    await index.setLastSuccessfulCrawl("2026-09-03T00:00:00.000Z");
+  } finally {
+    if (previous === undefined) delete process.env.REMOTE_D1_SKIP_MIGRATIONS;
+    else process.env.REMOTE_D1_SKIP_MIGRATIONS = previous;
+  }
+});
+
+test("wrangler migrate timeout text is treated as transient", () => {
+  expect(
+    isTransientRemoteD1MigrationFailure(
+      "ERROR The request to Cloudflare's API timed out.\nThis is likely due to network connectivity issues",
+    ),
+  ).toBe(true);
+  expect(isTransientRemoteD1MigrationFailure("migration SQL syntax error near CREATE")).toBe(false);
+  expect(remoteD1SkipMigrationsFromEnv({ REMOTE_D1_SKIP_MIGRATIONS: "true" })).toBe(true);
+  expect(remoteD1SkipMigrationsFromEnv({ REMOTE_D1_SKIP_MIGRATIONS: "0" })).toBe(false);
 });
 
 function createStubRemoteD1QueryClient(): RemoteD1QueryClient {

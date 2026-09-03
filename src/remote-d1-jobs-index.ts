@@ -190,30 +190,73 @@ export function createRemoteD1Database(client: RemoteD1QueryClient): JobsIndexDa
   };
 }
 
-export function applyRemoteD1Migrations(options: { projectRoot?: string } = {}): void {
+/** Operator burst crawls: set to skip per-batch wrangler migrate (schema already applied). */
+export function remoteD1SkipMigrationsFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = env.REMOTE_D1_SKIP_MIGRATIONS?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+function isTransientWranglerMigrationFailure(detail: string): boolean {
+  return /timed out|timeout|network connectivity|ECONNRESET|ENOTFOUND|ETIMEDOUT|fetch failed|UND_ERR_/i.test(
+    detail,
+  );
+}
+
+/** Exported for tests — wrangler migrate stderr/stdout that should be retried. */
+export function isTransientRemoteD1MigrationFailure(detail: string): boolean {
+  return isTransientWranglerMigrationFailure(detail);
+}
+
+const DEFAULT_REMOTE_D1_MIGRATION_ATTEMPTS = 4;
+const REMOTE_D1_MIGRATION_RETRY_BACKOFF_MS = [1000, 3000, 8000];
+
+export function applyRemoteD1Migrations(
+  options: {
+    projectRoot?: string;
+    maxAttempts?: number;
+    sleepSync?: (ms: number) => void;
+  } = {},
+): void {
   const projectRoot = options.projectRoot ?? defaultProjectRoot();
   const wranglerBin = join(projectRoot, "node_modules", "wrangler", "bin", "wrangler.js");
-  const result = spawnSync(
-    process.execPath,
-    [wranglerBin, "d1", "migrations", "apply", REMOTE_D1_DATABASE_NAME, "--remote"],
-    {
-      cwd: projectRoot,
-      encoding: "utf8",
-      env: process.env,
-    },
-  );
-  if (result.status !== 0) {
-    const detail = [result.stderr, result.stdout].filter(Boolean).join("\n").trim();
-    throw new Error(
-      `wrangler d1 migrations apply ${REMOTE_D1_DATABASE_NAME} --remote failed${detail ? `: ${detail}` : ""}`,
+  const maxAttempts = options.maxAttempts ?? DEFAULT_REMOTE_D1_MIGRATION_ATTEMPTS;
+  const sleepSync =
+    options.sleepSync ??
+    ((ms: number) => {
+      const seconds = Math.max(1, Math.ceil(ms / 1000));
+      spawnSync("sleep", [String(seconds)], { stdio: "ignore" });
+    });
+
+  let lastDetail = "";
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const result = spawnSync(
+      process.execPath,
+      [wranglerBin, "d1", "migrations", "apply", REMOTE_D1_DATABASE_NAME, "--remote"],
+      {
+        cwd: projectRoot,
+        encoding: "utf8",
+        env: process.env,
+      },
     );
+    if (result.status === 0) {
+      return;
+    }
+    lastDetail = [result.stderr, result.stdout].filter(Boolean).join("\n").trim();
+    if (!isTransientWranglerMigrationFailure(lastDetail) || attempt >= maxAttempts) {
+      break;
+    }
+    sleepSync(REMOTE_D1_MIGRATION_RETRY_BACKOFF_MS[attempt - 1] ?? 8000);
   }
+  throw new Error(
+    `wrangler d1 migrations apply ${REMOTE_D1_DATABASE_NAME} --remote failed${lastDetail ? `: ${lastDetail}` : ""}`,
+  );
 }
 
 export async function createRemoteD1WritableJobsIndex(
   options: RemoteD1JobsIndexOptions = {},
 ): Promise<WritableJobsIndex> {
-  if (!options.skipMigrations) {
+  const skipMigrations = options.skipMigrations ?? remoteD1SkipMigrationsFromEnv();
+  if (!skipMigrations) {
     applyRemoteD1Migrations({ projectRoot: options.projectRoot });
   }
   const client =
