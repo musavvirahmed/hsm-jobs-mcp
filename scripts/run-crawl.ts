@@ -27,6 +27,36 @@ const PRODUCT_DESIGNER_CAREERS =
   "<html><head><title>Product Designer</title></head><body><h1>Product Designer</h1><p>Utrecht</p></body></html>";
 
 async function main(): Promise<void> {
+  let closeRuntime: (() => Promise<void>) | undefined;
+  let exitCode = 0;
+  try {
+    await runCrawl((close) => {
+      closeRuntime = close;
+    });
+    exitCode = process.exitCode ?? 0;
+  } catch (error) {
+    console.error(error);
+    exitCode = 1;
+  } finally {
+    if (closeRuntime) {
+      console.error("[crawl] closing runtime…");
+      try {
+        await closeRuntime();
+      } catch (closeError) {
+        console.error(closeError);
+        if (exitCode === 0) exitCode = 1;
+      }
+    }
+    console.error("[crawl] batch process exiting");
+    // Playwright/MCP sockets can keep the event loop alive after close(); exit so
+    // CI and the full-pass loop are not stuck after success *or* failure.
+    process.exit(exitCode);
+  }
+}
+
+async function runCrawl(
+  setCloseRuntime: (close: (() => Promise<void>) | undefined) => void,
+): Promise<void> {
   const smoke = process.env.CRAWL_SMOKE === "1";
   /** Fixture register + live board/HTML (private-release CI). Avoids loading the full hsm-mcp register. */
   const fixtureRegister = smoke || process.env.CRAWL_FIXTURE_REGISTER === "1";
@@ -46,7 +76,6 @@ async function main(): Promise<void> {
     await index.setBoardSeed(RENTMAN_ASHBY_BOARD_SEED, now());
   }
 
-  let closeRuntime: (() => Promise<void>) | undefined;
   const runtime = smoke
     ? {
         register: createFixtureRegister(
@@ -63,7 +92,7 @@ async function main(): Promise<void> {
     : fixtureRegister
       ? await (async () => {
           const browser = await createPlaywrightPageGetter().catch(() => null);
-          closeRuntime = browser ? () => browser.close() : undefined;
+          setCloseRuntime(browser ? () => browser.close() : undefined);
           return {
             register: createFixtureRegister(
               [RENTMAN],
@@ -79,7 +108,7 @@ async function main(): Promise<void> {
         })()
       : await (async () => {
           const production = await createProductionCrawlRuntime({ env: process.env });
-          closeRuntime = production.close;
+          setCloseRuntime(production.close);
           return production;
         })();
 
@@ -131,15 +160,6 @@ async function main(): Promise<void> {
   if ("alerts" in report && report.alerts.length > 0) {
     process.exitCode = 2;
   }
-
-  if (closeRuntime) {
-    console.error("[crawl] closing runtime…");
-    await closeRuntime();
-  }
-  console.error("[crawl] batch process exiting");
-  // Playwright/MCP sockets can keep the event loop alive after close(); exit so
-  // CI and the full-pass loop are not stuck after a successful crawl.
-  process.exit(process.exitCode ?? 0);
 }
 
 function smokeFetchBoardFeed() {
@@ -176,7 +196,4 @@ function smokeGetPage() {
   };
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main();

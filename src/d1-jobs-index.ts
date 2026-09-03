@@ -214,6 +214,10 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .first<OutcomeRow>();
       return row ?? null;
     },
+    async listTerminalOutcomeKvks() {
+      const rows = await db.prepare("SELECT kvk FROM terminal_careers_outcomes").all<{ kvk: string }>();
+      return rows.results.map((row) => row.kvk);
+    },
     async recordTerminalOutcome(input) {
       await db
         .prepare(

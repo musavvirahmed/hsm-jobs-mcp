@@ -77,7 +77,24 @@ Two clocks keep the **jobs index** honest after **shared release** (see [ADR 000
 
 A new Work-register KvK without a terminal outcome sets pass back to `partial`. Catch-up chips away until missing is 0. At 200 KvKs per day, a full ~13k register is about two months; a typical monthly IND delta is much smaller.
 
-The fixture-smoke workflow ([`.github/workflows/crawl.yml`](../.github/workflows/crawl.yml)) stays fixture-only. Production writes use [`.github/workflows/crawl-production.yml`](../.github/workflows/crawl-production.yml). That workflow has **no `pull_request` trigger**. Cron is a no-op until repo variable `ENABLE_PRODUCTION_CRAWL_SCHEDULE` is `true`. Forks never receive production secrets.
+Two GitHub workflows:
+
+| Workflow | File | Writes remote D1? |
+| -------- | ---- | ----------------- |
+| Out-of-band crawl (fixture smoke) | [`.github/workflows/crawl.yml`](../.github/workflows/crawl.yml) | **No** — fixture + unit tests only (~daily schedule) |
+| Production crawl | [`.github/workflows/crawl-production.yml`](../.github/workflows/crawl-production.yml) | **Yes** — when dispatched or when `ENABLE_PRODUCTION_CRAWL_SCHEDULE=true` |
+
+Production has **no `pull_request` trigger**. Cron is a no-op until that repo variable is `true`. Forks never receive production secrets.
+
+While the index is still `partial`, production `opening-refresh` can also attempt missing-KvK website/ladder work (not board seeds only). That job has a **90-minute** timeout. Cancelled refresh with an empty `refresh-report.json` is common; `register-catch-up` may still run and chip the cap. Judge the pilot from **`catchup-report.json`**, not from a green opening-refresh alone.
+
+Crawl steps redirect JSON to artifacts (`npm run --silent … > report.json`), so the Actions log looks quiet until the step ends. Download reports from the run **Summary → Artifacts**, or:
+
+```bash
+gh run download RUN_ID -n catchup-report -D .
+```
+
+**D1 budget (first full pass):** Cloudflare free-tier daily `rows_read` can stop a multi-thousand-KvK remote crawl mid-day (error code 7500 / “wait until midnight UTC”). For a fast first pass (~hours to a few days), use **Workers Paid** or wait for the UTC midnight reset. After shared release, small daily catch-up usually fits free tier; paid removes the hard daily wall.
 
 Do **not** run a local `JOBS_INDEX_TARGET=remote-d1` crawl while the schedule is on or a production run is in progress.
 
@@ -131,45 +148,47 @@ Note wall-clock for both jobs.
 
 **5. Go / no-go**
 
-From `catchup-report.json` (and `refresh-report.json`):
+From `catchup-report.json` (and `refresh-report.json` when present):
 
 | Check | Fail |
 | ----- | ---- |
-| Jobs green (catch-up may still run after a known refresh fail) | Fix secrets/logs; do not enable schedule |
+| Catch-up job succeeded (opening-refresh may cancel at 90m while still `partial`) | Fix secrets/logs; do not enable schedule |
 | `jobs_index_target` is `remote-d1` | Re-check secrets |
 | `attempted` ≈ cap (or remaining missing) | Inspect logs |
-| `missing_terminal_outcomes_after` ≈ `missing_terminal_outcomes_before - attempted` | Egress suspect → step 8 fallback; do not enable schedule |
+| `missing_terminal_outcomes_after` ≈ `missing_terminal_outcomes_before - attempted` | Egress or D1 quota → step 8; do not enable schedule |
 | No stale hsm-mcp register error | Fix upstream; do not raise cap |
-| `/health` passed | Check Worker / DNS |
+| `/health` passed on catch-up | Check Worker / DNS |
 
-Record minutes, `missing_*`, `attempted`, `index_scope.pass`. **Go** → step 6. **No-go** → leave schedule unset.
+Record minutes, `missing_*`, `attempted`, `index_scope.pass`. **Go** → step 6 only when you want daily **maintenance**. **No-go** → leave schedule unset.
 
-Skip step 6 and keep dispatching if the initial full pass is still incomplete.
+Skip step 6 and keep catch-up (Actions dispatch or local burst) while the initial full pass is still incomplete (`missing_terminal_outcomes_after` > 0).
 
-**6. Enable daily schedule (Go only)**
+**6. Enable daily schedule (Go only — after shared release or when daily delta is enough)**
 
 ```bash
 gh variable set ENABLE_PRODUCTION_CRAWL_SCHEDULE --body true
 ```
 
-Until then, only `workflow_dispatch` runs production.
+Until then, only `workflow_dispatch` runs production. Do not enable the schedule to finish the first ~13k pass faster — default 200/day is maintenance cadence.
 
 **7. Burst catch-up (optional)**
 
-After a large IND register delta: `gh workflow run crawl-production.yml -f catch_up_max_attempts=500`. Do not change the scheduled default to 500 until a 200 (and preferably a 500) dispatch finished inside timeouts.
+After a large IND register delta: `gh workflow run crawl-production.yml -f catch_up_max_attempts=500`. Do not change the scheduled default to 500 until a 200 (and preferably a 500) dispatch finished inside timeouts. Expect each Actions run to spend up to ~90m on `opening-refresh` before catch-up starts while the index is still `partial`.
 
-**8. Pause / local fallback**
+**8. Pause / local burst (first full pass)**
 
-```bash
-gh variable delete ENABLE_PRODUCTION_CRAWL_SCHEDULE
-# or: gh variable set ENABLE_PRODUCTION_CRAWL_SCHEDULE --body false
-```
-
-Disable the workflow in the Actions UI to block dispatch too. Local fallback while schedule is off:
+To finish thousands of missing KvKs in a few days, pause the schedule and run capped batches on your machine (one writer):
 
 ```bash
-JOBS_INDEX_TARGET=remote-d1 CRAWL_MAX_ATTEMPTS=200 npm run crawl:full-pass
+gh variable set ENABLE_PRODUCTION_CRAWL_SCHEDULE --body false
+# or: gh variable delete ENABLE_PRODUCTION_CRAWL_SCHEDULE
+pgrep -fl 'full-pass-loop|run-crawl' || echo "no local crawl process"
+JOBS_INDEX_TARGET=remote-d1 CRAWL_MAX_ATTEMPTS=500 npm run crawl:full-pass
 ```
+
+Re-run the same command to resume (skips KvKs that already have terminal outcomes). Use `200` if you are still on D1 free tier and near the daily `rows_read` cap. Raise to `500` only when a batch finishes cleanly under Workers Paid (or after UTC midnight on free tier).
+
+Disable the workflow in the Actions UI to block dispatch too.
 
 **9. Stale register / one writer**
 

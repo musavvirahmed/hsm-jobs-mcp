@@ -16,13 +16,8 @@ export async function listMissingTerminalOutcomeKvks(
   index: WritableJobsIndex,
   sponsors: RegisterSponsor[],
 ): Promise<string[]> {
-  const missing: string[] = [];
-  for (const sponsor of sponsors) {
-    if (!(await index.getTerminalOutcome(sponsor.kvk))) {
-      missing.push(sponsor.kvk);
-    }
-  }
-  return missing;
+  const recorded = new Set(await index.listTerminalOutcomeKvks());
+  return sponsors.map((sponsor) => sponsor.kvk).filter((kvk) => !recorded.has(kvk));
 }
 
 /**
