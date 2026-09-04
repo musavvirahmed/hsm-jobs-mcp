@@ -51,7 +51,7 @@ test("full careers pass runner records a terminal outcome for every register KvK
   const status = await connected.client.callTool({ name: "get_index_status", arguments: {} });
   expect(status.structuredContent).toMatchObject({
     coverage_note:
-      "Jobs index has completed a full careers pass; empty results are relevance misses, not a coverage gap.",
+      "Full Work-register coverage: every current Work-register sponsor has been checked. An empty search means no title/location match in the index.",
     index_scope: {
       pass: "full_careers_pass",
       omissions_possible: false,

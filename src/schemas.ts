@@ -57,6 +57,8 @@ export const searchJobsOutputSchema = z.object({
   openings: z.array(openingSearchCardSchema),
   index_scope: indexScopeSchema,
   register_join_status: registerJoinStatusSchema,
+  results_truncated: z.boolean(),
+  result_note: z.string(),
 });
 
 export type SearchJobsOutput = z.infer<typeof searchJobsOutputSchema>;

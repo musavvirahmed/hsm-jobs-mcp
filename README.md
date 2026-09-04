@@ -82,6 +82,7 @@ Register-only questions belong on **hsm-mcp**, not here.
 - **Register join is a match score, not a yes/no.** A company on the sponsor register does not mean this specific job will sponsor you.
 - **This tool does not check the IND salary minimum.** You or your agent must do that.
 - **Empty results mean no matching openings in the index right now.** The shared index has finished a full careers pass over the current Work register.
+- **Each search returns up to 20 hits.** When more matches exist, the answer says so and invites a tighter title or location. When every match fits in the page, it does not talk about a cap.
 - **Register data can be stale.** If hsm-mcp is slow or down, job cards may show older register info. The tool tells you instead of guessing.
 
 Check employer careers pages and the [official IND register](https://ind.nl/en/public-register-recognised-sponsors/public-register-work) before you act on anything important.
