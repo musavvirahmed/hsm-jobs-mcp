@@ -10,6 +10,7 @@ recognised-sponsors/cache/
 tmp/
 dist/
 .cursor/plans/
+.cursor/rules/
 .agents/skills/
 .claude/skills/
 .codex/skills/
