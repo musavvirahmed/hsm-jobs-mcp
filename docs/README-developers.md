@@ -22,6 +22,8 @@ Copy [`.env.example`](../.env.example) to `.env`. Cloudflare bootstrap keys are 
 | `PRIVATE_RELEASE_ORIGIN` | `http://127.0.0.1:8787` | Base URL for verify and for wiring your MCP client |
 | `PRIVATE_RELEASE_PORT` | `8787` | Local dev port (`private-release:integration` may pick a free port when unset) |
 | `CRAWL_MAX_ATTEMPTS` | (all missing) | Optional cap on missing KvKs per `crawl:full-pass` |
+| `REMOTE_D1_SKIP_MIGRATIONS` | unset | When `1`/`true`, skip `wrangler d1 migrations apply --remote` on each remote-d1 crawl open (schema already applied) |
+| `HSM_MCP_ORIGIN` | `https://hsm.codealan.com` | Live Work-register source for production crawl |
 
 Operator loop reuses `.wrangler/state` unless you override `JOBS_INDEX_LOCAL_D1_STATE`. CI uses an **ephemeral** state dir (temp under the OS tmp) and tears it down after verify.
 
@@ -42,7 +44,7 @@ Production full pass writes to the shared jobs index:
 JOBS_INDEX_TARGET=remote-d1 npm run crawl:full-pass
 ```
 
-Requires `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`, and `CLOUDFLARE_API_TOKEN` in `.env`. The runner applies remote D1 migrations on first connect, skips KvKs that already have **terminal careers outcomes**, and prints `jobs_index_target: "remote-d1"` in JSON output. Stop with Ctrl+C; re-run the same command to resume.
+Requires `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`, and `CLOUDFLARE_API_TOKEN` in `.env`. By default each `crawl:full-pass` runs `wrangler d1 migrations apply --remote` (with retries on Cloudflare API timeouts) before writing. That call is redundant once the shared D1 schema is current and can abort a long burst if Cloudflare times out — for multi-batch local runs set `REMOTE_D1_SKIP_MIGRATIONS=1` after one successful apply (or after bootstrap). The runner skips KvKs that already have **terminal careers outcomes**, and prints `jobs_index_target: "remote-d1"` in JSON output. Stop with Ctrl+C; re-run the same command to resume.
 
 One-shot automated loop (crawl → ephemeral D1 → dev → verify → teardown): `npm run private-release:integration`.
 
@@ -64,7 +66,15 @@ Default target: `https://hsmjobs.musavvir.work` (override with `SHARED_RELEASE_O
 - `POST /mcp` initialize succeeds (not 503)
 - `get_index_status` reports `pass: full_careers_pass`, `omissions_possible: false`, and a plausible `register_size`
 
-Unit tests cover verify logic against a local HTTP handler — no live-network dependency on every PR. Run `shared-release:verify` against production manually when the crawl finishes.
+Unit tests cover verify logic against a local HTTP handler — no live-network dependency on every PR.
+
+When verify succeeds against production:
+
+1. Soften or update the root [README](../README.md) “Connect to the public site” copy so kennismigrants are not told shared `/mcp` still errors.
+2. Enable daily maintenance: `gh variable set ENABLE_PRODUCTION_CRAWL_SCHEDULE --body true` (Human operator step 6). Do **not** run a local `JOBS_INDEX_TARGET=remote-d1` crawl while that schedule (or a production Actions run) is active.
+3. Keep Workers Paid on if daily catch-up + opening refresh would hit free-tier `rows_read` walls.
+
+`upsertOpening` clears any other row with the same `primary_url` before insert/update. That avoids aborting a long crawl when two identities (e.g. two ATS postings) resolve to one careers URL.
 
 ### Automated crawl (production schedule)
 
@@ -183,10 +193,15 @@ To finish thousands of missing KvKs in a few days, pause the schedule and run ca
 gh variable set ENABLE_PRODUCTION_CRAWL_SCHEDULE --body false
 # or: gh variable delete ENABLE_PRODUCTION_CRAWL_SCHEDULE
 pgrep -fl 'full-pass-loop|run-crawl' || echo "no local crawl process"
-JOBS_INDEX_TARGET=remote-d1 CRAWL_MAX_ATTEMPTS=500 npm run crawl:full-pass
+# Once: ensure schema is current (retries on Cloudflare API timeout)
+npx wrangler d1 migrations apply hsm-jobs-index --remote
+# Then batch with migrate skipped so a mid-burst wrangler timeout cannot abort progress
+JOBS_INDEX_TARGET=remote-d1 REMOTE_D1_SKIP_MIGRATIONS=1 CRAWL_MAX_ATTEMPTS=500 npm run crawl:full-pass
 ```
 
-Re-run the same command to resume (skips KvKs that already have terminal outcomes). Use `200` if you are still on D1 free tier and near the daily `rows_read` cap. Raise to `500` only when a batch finishes cleanly under Workers Paid (or after UTC midnight on free tier).
+Re-run the same `crawl:full-pass` command to resume (skips KvKs that already have terminal outcomes). Keep `REMOTE_D1_SKIP_MIGRATIONS=1` for the whole burst. Use `200` if you are still on D1 free tier and near the daily `rows_read` cap. Raise to `500` only when a batch finishes cleanly under Workers Paid (or after UTC midnight on free tier).
+
+Transient Cloudflare errors (`UND_ERR_CONNECT_TIMEOUT`, `UND_ERR_SOCKET`, wrangler “API timed out”) during a batch are safe to retry with the same command — already-written terminal outcomes stay on remote D1.
 
 Disable the workflow in the Actions UI to block dispatch too.
 
