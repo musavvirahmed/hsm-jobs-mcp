@@ -269,9 +269,19 @@ test("developer README and workflows document gated production crawl", () => {
   expect(developerReadme).toMatch(/local burst|CRAWL_MAX_ATTEMPTS=500/);
 });
 
+test("README prefers crawl:smoke and warns that live crawl can take hours", () => {
+  expect(readme).toContain("npm run crawl:smoke");
+  expect(readme).toMatch(/\[crawl\]/);
+  expect(readme).toMatch(/many minutes to hours/);
+  expect(readme).toMatch(/hsmjobs\.musavvir\.work\/mcp/);
+  expect(readme).toMatch(/Prefer the shared MCP|prefer.*shared MCP/i);
+});
+
 test("crawl CLI always process.exit after success or failure so Playwright cannot hang the batch", () => {
   const crawl = readFileSync(resolve(import.meta.dirname, "../scripts/run-crawl.ts"), "utf8");
   expect(crawl).toMatch(/catch \(error\)/);
   expect(crawl).toMatch(/process\.exit\(exitCode\)/);
   expect(crawl).toMatch(/closing runtime/);
+  expect(crawl).toMatch(/crawlStartLines/);
+  expect(crawl).toMatch(/onProgress/);
 });

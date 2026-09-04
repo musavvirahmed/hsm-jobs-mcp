@@ -1,3 +1,4 @@
+import type { CrawlProgress } from "./crawl-cli-progress";
 import {
   ingestExtractionLadder,
   ingestFromBoardSeeds,
@@ -48,11 +49,16 @@ export async function runOutOfBandCrawl(opts: {
   now?: () => string;
   alert?: CrawlAlertHook;
   failureAlertThreshold?: number;
+  onProgress?: CrawlProgress;
 }): Promise<OutOfBandCrawlReport> {
   const now = opts.now ?? (() => new Date().toISOString());
   const threshold = opts.failureAlertThreshold ?? DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD;
   const getPage = opts.providers.getPage;
+  const progress = opts.onProgress;
   const register = await opts.register.load();
+  progress?.(
+    `register loaded: ${register.sponsors.length} sponsors (as of ${register.asOf})`,
+  );
 
   await opts.index.setRegisterMeta({
     register_size: register.sponsors.length,
@@ -67,6 +73,8 @@ export async function runOutOfBandCrawl(opts: {
     rePartialed = true;
   }
 
+  const boardSeeds = await opts.index.listBoardSeeds();
+  progress?.(`board refresh: ${boardSeeds.length} seed(s)`);
   const openingsRefresh = await ingestFromBoardSeeds({
     register: opts.register,
     index: opts.index,
@@ -74,6 +82,9 @@ export async function runOutOfBandCrawl(opts: {
     getPage,
     now,
   });
+  progress?.(
+    `board refresh done: ${openingsRefresh.results.length} result(s)`,
+  );
 
   let websiteIngest: WebsiteIngestReport | null = null;
   let ladderIngest: LadderIngestReport | null = null;
@@ -81,11 +92,13 @@ export async function runOutOfBandCrawl(opts: {
   const stillMissing = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
   if (stillMissing.length > 0) {
     const missingRegister = createRegisterSubset(opts.register, new Set(stillMissing));
+    progress?.(`website resolution: ${stillMissing.length} KvK(s)`);
     websiteIngest = await ingestWebsiteResolutions({
       register: missingRegister,
       index: opts.index,
       providers: opts.providers,
       now,
+      onProgress: progress,
     });
 
     const afterWebsite = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
@@ -96,6 +109,7 @@ export async function runOutOfBandCrawl(opts: {
       }
     }
     if (withWebsite.length > 0) {
+      progress?.(`extraction ladder: ${withWebsite.length} KvK(s)`);
       ladderIngest = await ingestExtractionLadder({
         register: createRegisterSubset(opts.register, new Set(withWebsite)),
         index: opts.index,
@@ -104,6 +118,9 @@ export async function runOutOfBandCrawl(opts: {
         getBrowserPage: opts.getBrowserPage,
         now,
       });
+      progress?.(
+        `extraction ladder done: ${ladderIngest.results.length} result(s)`,
+      );
     }
   }
 

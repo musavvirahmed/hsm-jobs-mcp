@@ -219,6 +219,25 @@ test("repeated crawl failure fires the alert hook once the threshold is reached"
   });
 });
 
+test("out-of-band crawl reports register, board, and website progress", async () => {
+  const index = createEmptyWritableJobsIndex();
+  await index.setBoardSeed(RENTMAN_ASHBY_BOARD_SEED, NOW);
+  const progress: string[] = [];
+
+  await runOutOfBandCrawl({
+    register: createFixtureRegister([RENTMAN, ACME], "2026-08-03"),
+    index,
+    fetchBoardFeed: recordedAshbyFeed([]),
+    providers: rentmanProviders(),
+    now: () => LATER,
+    onProgress: (message) => progress.push(message),
+  });
+
+  expect(progress.some((line) => /register loaded: 2 sponsors/.test(line))).toBe(true);
+  expect(progress.some((line) => /board refresh/.test(line))).toBe(true);
+  expect(progress.some((line) => /website \d+\/\d+/.test(line))).toBe(true);
+});
+
 async function seedRentmanBoard() {
   const index = createEmptyWritableJobsIndex();
   const getPage = fakeGetPage(rentmanPages());
