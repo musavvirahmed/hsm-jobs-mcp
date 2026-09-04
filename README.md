@@ -31,6 +31,8 @@ Add **two** servers — jobs here, and register lookup on hsm-mcp. No login in v
 
 In **Cursor Settings → MCP**, both servers should show green. `hsm-jobs` lists 3 tools. `ind-sponsors` lists 2 tools.
 
+**Cursor: use This Mac / desktop, not Cloud.** Green servers in **Settings → MCP** apply to local Agent chats. A chat set to **Cloud** often skips those servers and answers from the web. Before you test, open a **new** chat. Set the environment to **This Mac** (or desktop Agent). Cloud Agents need a separate MCP setup in the Cloud Agents dashboard.
+
 **Claude Code**
 
 ```bash
@@ -40,7 +42,7 @@ claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 
 **claude.ai / Claude Desktop:** Settings → Connectors → Add custom connector → `https://hsmjobs.musavvir.work/mcp` (add hsm-mcp the same way).
 
-Then start a **new chat** and ask in plain language. The assistant should call the tools.
+Then start a **new chat** and ask in plain language. You do **not** pick MCP tools from the `/` skills menu. The assistant calls them when it answers.
 
 - *"Which recognised sponsors are hiring product designers?"*
 - *"Which recognised sponsors are hiring software engineers in Amsterdam?"*
@@ -51,7 +53,7 @@ Then start a **new chat** and ask in plain language. The assistant should call t
 **You know MCP worked when:**
 
 - The reply cites **last successful crawl**, **jobs count**, or **index scope** from the index — not a guess from random websites.
-- Cursor shows an MCP **tool** call (for example `get_index_status` or `search_jobs`).
+- Cursor shows an MCP **tool** call (for example `get_index_status` or `search_jobs`), or a status like **Explored … 1 tool**.
 
 If the assistant only searches the web, say: *Use the hsm-jobs MCP tool `get_index_status`.*
 
