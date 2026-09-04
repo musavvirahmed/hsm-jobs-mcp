@@ -1,3 +1,4 @@
+import { serverIcons } from "./favicon";
 import { SERVER_NAME } from "./packaging";
 
 // Keep in sync with package.json version (bundled at build time).
@@ -15,6 +16,11 @@ export type ServerCard = {
   name: string;
   description: string;
   version: string;
+  icons: Array<{
+    src: string;
+    mimeType: string;
+    sizes: string[];
+  }>;
   remotes: Array<{
     type: "streamable-http";
     url: string;
@@ -26,6 +32,7 @@ export function buildServerCard(origin: string): ServerCard {
     name: SERVER_NAME,
     description: SERVER_CARD_DESCRIPTION,
     version: pkg.version,
+    icons: serverIcons(origin),
     remotes: [
       {
         type: "streamable-http",

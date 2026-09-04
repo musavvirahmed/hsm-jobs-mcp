@@ -1,5 +1,6 @@
 import { createMcpHandler } from "@modelcontextprotocol/server";
 import { discoveryPageResponse } from "./discovery-page";
+import { faviconResponse, isFaviconPath } from "./favicon";
 import { isSharedReleaseHost, sharedReleaseAllowed } from "./index-pass";
 import type { JobsToolsDeps } from "./jobs-tools";
 import { createJobsMcpServer } from "./mcp-server";
@@ -11,6 +12,9 @@ export async function handleRequest(request: Request, deps: JobsToolsDeps): Prom
   const url = new URL(request.url);
   if (url.pathname === "/" && request.method === "GET") {
     return discoveryPageResponse(url.origin);
+  }
+  if (request.method === "GET" && isFaviconPath(url.pathname)) {
+    return faviconResponse();
   }
   if (
     request.method === "GET" &&
@@ -25,7 +29,7 @@ export async function handleRequest(request: Request, deps: JobsToolsDeps): Prom
     if (isSharedReleaseHost(url.hostname) && !(await sharedReleaseInPolicy(deps))) {
       return new Response("Shared release waits for a full careers pass", { status: 503 });
     }
-    const handler = createMcpHandler(() => createJobsMcpServer(deps));
+    const handler = createMcpHandler(() => createJobsMcpServer(deps, url.origin));
     return handler.fetch(request);
   }
   return new Response("Not found", { status: 404 });
