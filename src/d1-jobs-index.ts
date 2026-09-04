@@ -382,6 +382,13 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .run();
     },
     async upsertOpening(opening) {
+      // primary_url is UNIQUE separately from identity. A new identity that reuses an
+      // existing primary_url (e.g. two ATS jobs resolving to the same careers page, or
+      // ATS vs careers_site for the same URL) must not abort the crawl.
+      await db
+        .prepare("DELETE FROM openings WHERE primary_url = ?1 AND identity != ?2")
+        .bind(opening.primary_url, opening.identity)
+        .run();
       await db
         .prepare(
           `INSERT INTO openings (

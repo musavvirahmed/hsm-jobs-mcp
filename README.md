@@ -14,9 +14,9 @@ Agent instructions for this repo: [`AGENTS.md`](AGENTS.md)
 
 ## Try it on your computer (start here)
 
-The public website is not ready for full personal use yet. It returns an error until more companies are indexed.
+The public MCP endpoint is live at `https://hsmjobs.musavvir.work/mcp`. You can connect a client there (see [Connect to the public site](#connect-to-the-public-site)).
 
-**Run the tool on your own machine instead.** Follow these steps in order.
+**You can also run the tool on your own machine.** Follow these steps in order.
 
 ### Get the code
 
@@ -208,14 +208,14 @@ After step 7, ask in plain language in a chat for **this** folder:
 - **Honesty fields are separate signals.** Salary, Dutch requirement, and sponsorship willingness are independent. Unknown is common and valid.
 - **Register join is a match score, not a yes/no.** A company on the sponsor register does not mean this specific job will sponsor you.
 - **This tool does not check the IND salary minimum.** You or your agent must do that.
-- **Empty results may not mean "no jobs".** On a partial index, the tool may not have searched every company yet.
+- **Empty results mean no matching openings in the index right now.** The shared index has finished a full careers pass over the current Work register.
 - **Register data can be stale.** If hsm-mcp is slow or down, job cards may show older register info. The tool tells you instead of guessing.
 
 Check employer careers pages and the [official IND register](https://ind.nl/en/public-register-recognised-sponsors/public-register-work) before you act on anything important.
 
-## Connect to the public site (later)
+## Connect to the public site
 
-When the public site is fully ready, use these URLs instead of localhost:
+Use these URLs to connect without running a local server:
 
 ```bash
 claude mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
@@ -223,6 +223,8 @@ claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 ```
 
 No login required in v1.
+
+Empty search results mean no matching openings in the index right now. Coverage is a full careers pass over the current Work register (not “companies not crawled yet”).
 
 ## For developers
 

@@ -550,6 +550,7 @@ async function writeBoardJobs(opts: {
 }): Promise<{ written: number; removed: number }> {
   const join = registerJoinAtIndexTime(opts.sponsor);
   const seen = new Set<string>();
+  const seenPrimaryUrls = new Set<string>();
   let written = 0;
 
   for (const job of opts.jobs) {
@@ -558,7 +559,13 @@ async function writeBoardJobs(opts: {
     const careersUrl = opts.officialHost
       ? await careersUrlIfLive(opts.officialHost, job.title, opts.getPage)
       : null;
-    const primaryUrl = careersUrl ?? job.jobUrl;
+    // Prefer the first-party careers URL when unique; if two postings resolve to the
+    // same careers path, keep the ATS job URL so primary_url stays unique per posting.
+    let primaryUrl = careersUrl ?? job.jobUrl;
+    if (seenPrimaryUrls.has(primaryUrl) && primaryUrl !== job.jobUrl) {
+      primaryUrl = job.jobUrl;
+    }
+    seenPrimaryUrls.add(primaryUrl);
     await ingestOpening(opts.index, {
       identity,
       primary_url: primaryUrl,

@@ -66,7 +66,15 @@ Default target: `https://hsmjobs.musavvir.work` (override with `SHARED_RELEASE_O
 - `POST /mcp` initialize succeeds (not 503)
 - `get_index_status` reports `pass: full_careers_pass`, `omissions_possible: false`, and a plausible `register_size`
 
-Unit tests cover verify logic against a local HTTP handler — no live-network dependency on every PR. Run `shared-release:verify` against production manually when the crawl finishes.
+Unit tests cover verify logic against a local HTTP handler — no live-network dependency on every PR.
+
+When verify succeeds against production:
+
+1. Soften or update the root [README](../README.md) “Connect to the public site” copy so kennismigrants are not told shared `/mcp` still errors.
+2. Enable daily maintenance: `gh variable set ENABLE_PRODUCTION_CRAWL_SCHEDULE --body true` (Human operator step 6). Do **not** run a local `JOBS_INDEX_TARGET=remote-d1` crawl while that schedule (or a production Actions run) is active.
+3. Keep Workers Paid on if daily catch-up + opening refresh would hit free-tier `rows_read` walls.
+
+`upsertOpening` clears any other row with the same `primary_url` before insert/update. That avoids aborting a long crawl when two identities (e.g. two ATS postings) resolve to one careers URL.
 
 ### Automated crawl (production schedule)
 
