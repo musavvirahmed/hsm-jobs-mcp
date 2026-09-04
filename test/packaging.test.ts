@@ -112,6 +112,37 @@ test("GET / uses TUI discovery chrome (variant B winner)", async () => {
   expect(html).toContain(IND_HSM_PERMIT_URL);
 });
 
+test("GET / links the idea-2 favicon", async () => {
+  const response = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/`),
+    emptyDeps(),
+  );
+  const html = await response.text();
+  expect(html).toContain('rel="icon"');
+  expect(html).toContain('type="image/webp"');
+  expect(html).toContain('href="/assets/favicon.webp"');
+});
+
+test("GET /assets/favicon.webp and /favicon.ico serve the webp bytes", async () => {
+  const asset = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/assets/favicon.webp`),
+    emptyDeps(),
+  );
+  const ico = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/favicon.ico`),
+    emptyDeps(),
+  );
+  expect(asset.status).toBe(200);
+  expect(ico.status).toBe(200);
+  expect(asset.headers.get("content-type")).toBe("image/webp");
+  expect(ico.headers.get("content-type")).toBe("image/webp");
+  const assetBytes = new Uint8Array(await asset.arrayBuffer());
+  const icoBytes = new Uint8Array(await ico.arrayBuffer());
+  expect(assetBytes.byteLength).toBeGreaterThan(100);
+  expect(assetBytes[0]).toBe(0x52); // R of RIFF
+  expect(icoBytes).toEqual(assetBytes);
+});
+
 test("GET /.well-known/mcp.json serves a server card", async () => {
   const response = await handleRequest(
     new Request(`${SHARED_RELEASE_ORIGIN}/.well-known/mcp.json`),
@@ -125,11 +156,19 @@ test("GET /.well-known/mcp.json serves a server card", async () => {
     name: string;
     description: string;
     version: string;
+    icons: Array<{ src: string; mimeType: string; sizes: string[] }>;
     remotes: Array<{ type: string; url: string }>;
   };
   expect(card.name).toBe(SERVER_NAME);
   expect(card.description).toBe(SERVER_CARD_DESCRIPTION);
   expect(card.version).toBeTruthy();
+  expect(card.icons).toEqual([
+    {
+      src: `${SHARED_RELEASE_ORIGIN}/assets/favicon.webp`,
+      mimeType: "image/webp",
+      sizes: ["96x96"],
+    },
+  ]);
   expect(card.remotes).toEqual([
     { type: "streamable-http", url: `${SHARED_RELEASE_ORIGIN}/mcp` },
   ]);

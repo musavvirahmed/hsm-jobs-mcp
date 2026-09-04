@@ -1,4 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/server";
+import { serverIcons } from "./favicon";
 import {
   getIndexStatus,
   getJob,
@@ -6,6 +7,7 @@ import {
   structuredToolResult,
   type JobsToolsDeps,
 } from "./jobs-tools";
+import { SHARED_RELEASE_ORIGIN } from "./packaging";
 import {
   getJobInputSchema,
   getJobOutputSchema,
@@ -17,8 +19,16 @@ import {
 export const SERVER_NAME = "hsm-jobs-mcp";
 export const SERVER_VERSION = "0.1.0";
 
-export function createJobsMcpServer(deps: JobsToolsDeps): McpServer {
-  const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION });
+export function createJobsMcpServer(
+  deps: JobsToolsDeps,
+  origin: string = SHARED_RELEASE_ORIGIN,
+): McpServer {
+  const server = new McpServer({
+    name: SERVER_NAME,
+    version: SERVER_VERSION,
+    websiteUrl: origin,
+    icons: serverIcons(origin),
+  });
 
   server.registerTool(
     "search_jobs",

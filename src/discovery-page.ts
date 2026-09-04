@@ -1,3 +1,4 @@
+import { FAVICON_MIME, FAVICON_PATH } from "./favicon";
 import {
   CLIENT_KEY,
   EXAMPLE_JOB_ASKS,
@@ -184,6 +185,7 @@ claude mcp add --transport http ${escapeHtml(HSM_MCP_CLIENT_KEY)} ${escapeHtml(h
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="${escapeHtml(FAVICON_MIME)}" href="${escapeHtml(FAVICON_PATH)}">
   <title>${escapeHtml(SERVER_NAME)}</title>
   <style>${DISCOVERY_STYLES}</style>
 </head>
