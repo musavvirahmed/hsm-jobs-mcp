@@ -77,6 +77,9 @@ test("search_jobs on an empty jobs index returns no openings with omissions_poss
       omissions_possible: true,
     },
     register_join_status: "ok",
+    results_truncated: false,
+    result_note:
+      "Partial index so far — more sponsors still being checked. Sponsor matches look current.",
   });
   expect(JSON.stringify(result.structuredContent)).not.toMatch(/jd_extract|jd_body|description/);
 });
@@ -303,6 +306,78 @@ test("search_jobs honors limit default 10 and max 20", async () => {
     arguments: { query: "e", limit: 21 },
   });
   expect(rejected.isError).toBe(true);
+});
+
+test("search_jobs result_note mentions a cap only when more matches exist", async () => {
+  const openings = Array.from({ length: 5 }, (_, i) => ({
+    identity: `mem-${i}`,
+    primary_url: `https://example.test/jobs/${i}`,
+    careers_url: `https://example.test/jobs/${i}`,
+    ats_url: null,
+    title: `Product Designer ${i}`,
+    location: i === 0 ? "Amsterdam" : "Utrecht",
+    jd_extract: null,
+    source_class: "ats_board" as const,
+    honesty_salary: "unknown",
+    honesty_dutch_required: "unknown" as const,
+    honesty_sponsorship_willingness: "unknown" as const,
+    register_name: `Sponsor ${i} B.V.`,
+    register_kvk: `1000000${i}`,
+    register_join_strength: "exact_kvk" as const,
+    ats_family: null,
+    board_token: null,
+    posting_id: null,
+  }));
+  connected = await connectTools({
+    jobsIndex: createMemoryJobsIndex({
+      openings,
+      snapshot: {
+        ...FIXTURE_SNAPSHOT,
+        jobs_count: openings.length,
+        index_scope: {
+          ...FIXTURE_SNAPSHOT.index_scope,
+          pass: "full_careers_pass",
+          register_as_of: "2026-08-03",
+          omissions_possible: false,
+        },
+        coverage_note:
+          "Full Work-register coverage: every current Work-register sponsor has been checked. An empty search means no title/location match in the index.",
+      },
+    }),
+    hsmMcp: createStubHsmMcp(),
+  });
+
+  const capped = await connected.client.callTool({
+    name: "search_jobs",
+    arguments: { query: "Product Designer", limit: 2 },
+  });
+  expect(capped.isError).toBeFalsy();
+  const cappedPayload = capped.structuredContent as {
+    openings: unknown[];
+    results_truncated: boolean;
+    result_note: string;
+  };
+  expect(cappedPayload.openings).toHaveLength(2);
+  expect(cappedPayload.results_truncated).toBe(true);
+  expect(cappedPayload.result_note).toMatch(/full Work-register coverage/i);
+  expect(cappedPayload.result_note).toMatch(/2026-08-03/);
+  expect(cappedPayload.result_note).toMatch(/top 2/i);
+  expect(cappedPayload.result_note).toMatch(/tighter|narrow|location|title/i);
+  expect(cappedPayload.result_note).not.toMatch(/census|not a full/i);
+
+  const allFits = await connected.client.callTool({
+    name: "search_jobs",
+    arguments: { query: "Product Designer", limit: 20 },
+  });
+  const allPayload = allFits.structuredContent as {
+    openings: unknown[];
+    results_truncated: boolean;
+    result_note: string;
+  };
+  expect(allPayload.openings).toHaveLength(5);
+  expect(allPayload.results_truncated).toBe(false);
+  expect(allPayload.result_note).toMatch(/full Work-register coverage/i);
+  expect(allPayload.result_note).not.toMatch(/top \d+|more match|tighter|capped|census/i);
 });
 
 test("fixture cards cover register-join strengths and honesty sentinels", async () => {

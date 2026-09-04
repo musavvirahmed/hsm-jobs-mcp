@@ -1,6 +1,7 @@
 import type { HsmMcpAdapter } from "./hsm-mcp";
 import {
   registerJoinFromOpening,
+  type IndexPass,
   type JobsIndex,
   type OpeningRecord,
   type RegisterJoin,
@@ -28,18 +29,56 @@ export async function searchJobs(
 ): Promise<SearchJobsOutput> {
   const parsed = searchJobsInputSchema.parse(args);
   const snapshot = await deps.jobsIndex.snapshot();
-  const openings = await deps.jobsIndex.searchOpenings({
+  const fetched = await deps.jobsIndex.searchOpenings({
     query: parsed.query,
     kvk: parsed.kvk,
     location: parsed.location,
-    limit: parsed.limit,
+    limit: parsed.limit + 1,
   });
+  const results_truncated = fetched.length > parsed.limit;
+  const openings = fetched.slice(0, parsed.limit);
   const revalidation = await revalidateOpenings(openings, deps.hsmMcp);
   return {
     openings: openings.map((opening) => toSearchCard(opening, hybridJoin(opening, revalidation))),
     index_scope: snapshot.index_scope,
     register_join_status: revalidation.status,
+    results_truncated,
+    result_note: formatSearchResultNote({
+      pass: snapshot.index_scope.pass,
+      register_as_of: snapshot.index_scope.register_as_of,
+      register_join_status: revalidation.status,
+      results_truncated,
+      returned: openings.length,
+    }),
   };
+}
+
+export function formatSearchResultNote(input: {
+  pass: IndexPass;
+  register_as_of: string | null;
+  register_join_status: RegisterJoinRevalidation["status"];
+  results_truncated: boolean;
+  returned: number;
+}): string {
+  const registerBit = input.register_as_of
+    ? ` (register as of ${input.register_as_of})`
+    : "";
+  const coverage =
+    input.pass === "full_careers_pass"
+      ? `Full Work-register coverage${registerBit}.`
+      : `Partial index so far${registerBit} — more sponsors still being checked.`;
+
+  const join =
+    input.register_join_status === "ok"
+      ? "Sponsor matches look current."
+      : input.register_join_status === "stale"
+        ? "Sponsor matches may be a little behind."
+        : "Could not refresh sponsor matches just now; cards still show last-known join.";
+
+  if (input.results_truncated) {
+    return `${coverage} Showing the top ${input.returned} matches — more exist. Try a tighter title or location to narrow the list. ${join}`;
+  }
+  return `${coverage} ${join}`;
 }
 
 export async function getJob(args: unknown, deps: JobsToolsDeps): Promise<GetJobOutput> {

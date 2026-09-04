@@ -142,7 +142,7 @@ export interface WritableJobsIndex extends JobsIndex {
 export const EMPTY_COVERAGE_NOTE =
   "Jobs index is a partial index; a full careers pass is required before empty results can be treated as complete.";
 export const FULL_COVERAGE_NOTE =
-  "Jobs index has completed a full careers pass; empty results are relevance misses, not a coverage gap.";
+  "Full Work-register coverage: every current Work-register sponsor has been checked. An empty search means no title/location match in the index.";
 export const SOURCE_POLICY = "first-party careers/ATS only";
 export const REGISTER_JOIN_NOTE =
   "Hybrid KvK re-validation via upstream hsm-mcp at query time; last-known join plus visible stale/error on degrade.";

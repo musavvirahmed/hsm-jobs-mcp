@@ -35,7 +35,7 @@ export function createJobsMcpServer(
     {
       title: "Search openings",
       description:
-        "Search the jobs index for Openings matching a title/free text query or KvK. Returns short cards without JD body, plus index scope.",
+        "Search the jobs index for Openings matching a title/free text query or KvK. Returns short cards without JD body, plus index scope. Prefer quoting result_note to the user; only mention a result cap when results_truncated is true.",
       inputSchema: searchJobsInputSchema,
       outputSchema: searchJobsOutputSchema,
       annotations: { readOnlyHint: true, idempotentHint: true },
