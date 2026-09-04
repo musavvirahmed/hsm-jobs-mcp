@@ -2,9 +2,9 @@
 
 Ask your AI: *Which recognised sponsors in the Netherlands are hiring for a role I want?*
 
-This tool searches **real job listings** on company careers pages. It does **not** search LinkedIn or big job boards.
+This MCP server searches **real job listings** on company careers pages. It does **not** search LinkedIn or big job boards.
 
-For register questions only — *Is Adyen a recognised sponsor?* — use **[hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)** instead. You need **both** tools for a full picture.
+For register-only questions — *Is Adyen a recognised sponsor?* — also add **[hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)**. You need **both** servers for a full picture.
 
 Live site: **[https://hsmjobs.musavvir.work](https://hsmjobs.musavvir.work)**
 
@@ -12,167 +12,48 @@ Agent instructions for this repo: [`AGENTS.md`](AGENTS.md)
 
 ---
 
-## Try it on your computer (start here)
+## Connect (start here)
 
-The public MCP endpoint is live at `https://hsmjobs.musavvir.work/mcp`. You can connect a client there (see [Connect to the public site](#connect-to-the-public-site)).
+You do **not** need to clone this repo to try the live server.
 
-**You can also run the tool on your own machine.** Follow these steps in order.
-
-### Get the code
-
-You need a copy of this project on your computer.
-
-**Option A — clone (recommended)**
-
-```bash
-git clone https://github.com/musavvirahmed/hsm-jobs-mcp.git
-cd hsm-jobs-mcp
-```
-
-**Option B — download without git**
-
-1. Open [github.com/musavvirahmed/hsm-jobs-mcp](https://github.com/musavvirahmed/hsm-jobs-mcp).
-2. Click **Code** → **Download ZIP**.
-3. Unzip the file and open a terminal in the unzipped folder.
-
-### Check Node.js
-
-This project needs Node.js and npm.
-
-```bash
-node --version
-npm --version
-```
-
-You need **Node.js 20 or newer**. The project tests on Node 24.
-
-- If both commands print a version number, you are ready.
-- If you see `command not found`, install Node.js from [nodejs.org](https://nodejs.org/) (choose the LTS installer), then run the commands again.
-
-### Check your AI tool (MCP client)
-
-You need an app that can connect to MCP servers over HTTP. Pick one you already use:
-
-| Tool | How to check |
-| ---- | ------------ |
-| **Cursor** | You are already in an MCP-capable editor. Open **Settings → MCP** (or **Cursor Settings → MCP**). |
-| **Claude Code** | Run `claude --version` in a terminal. If missing, install from [Anthropic's Claude Code docs](https://docs.anthropic.com/en/docs/claude-code). |
-| **Claude Desktop** | Open the app. Go to **Settings → Connectors** (or **Developer → Edit Config**). |
-
-If you do not have any of these, install Cursor or Claude Code before you continue.
-
-### Step 1 — Install dependencies
-
-Open a terminal in the project folder (the folder that contains this README).
-
-```bash
-npm ci
-```
-
-This downloads the packages the project needs. It may take a minute.
-
-**Two terminals:** Steps 3 and 4 need the server running in one terminal while you run commands in another. Step 2 below uses your first terminal. Step 3 opens a second one.
-
-### Step 2 — Download job listings
-
-In the **same terminal** as step 1:
-
-```bash
-npm run crawl
-```
-
-Wait until it finishes. You should see JSON output at the end. When it is done, this terminal is free for step 4.
-
-### Step 3 — Start the local server
-
-`npm run dev` keeps running until you stop it. It will block the terminal.
-
-Open a **new** terminal window or tab in the same project folder. Run:
-
-```bash
-npm run dev
-```
-
-Leave this terminal open. The server uses **http://127.0.0.1:8787** by default.
-
-### Step 4 — Check that it works
-
-In a terminal that is **not** running `npm run dev` — the one you used for steps 1 and 2 is fine. If you only have one terminal, open a new one now.
-
-```bash
-npm run private-release:verify
-```
-
-If you see `ready at http://127.0.0.1:8787/mcp`, you are good.
-
-If it fails:
-
-1. Make sure step 2 finished without errors.
-2. Make sure step 3 is still running in the other terminal.
-3. Run step 4 again in a terminal that is not running the server.
-
-### Step 5 — Connect your AI tool
-
-Add **two** servers — jobs **and** register lookup:
+Add **two** servers — jobs here, and register lookup on hsm-mcp. No login in v1.
 
 **Cursor / any MCP client**
 
 ```json
 {
   "mcpServers": {
-    "hsm-jobs": { "url": "http://127.0.0.1:8787/mcp" },
+    "hsm-jobs": { "url": "https://hsmjobs.musavvir.work/mcp" },
     "ind-sponsors": { "url": "https://hsm.codealan.com/mcp" }
   }
 }
 ```
 
-In **Cursor Settings → MCP**, both servers should show green and list their tools (`hsm-jobs`: 3 tools, `ind-sponsors`: 2 tools). That means Cursor can reach the servers. It does **not** mean chat will use them yet — see step 6.
+In **Cursor Settings → MCP**, both servers should show green. `hsm-jobs` lists 3 tools. `ind-sponsors` lists 2 tools.
 
 **Claude Code**
 
 ```bash
-claude mcp add --transport http hsm-jobs http://127.0.0.1:8787/mcp
+claude mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
 claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 ```
 
-**Important:** Use `http://127.0.0.1:8787/mcp` on your machine. Do **not** use `https://hsmjobs.musavvir.work/mcp` for local testing. The public URL blocks access until indexing is complete.
+**claude.ai / Claude Desktop:** Settings → Connectors → Add custom connector → `https://hsmjobs.musavvir.work/mcp` (add hsm-mcp the same way).
 
-### Step 6 — Open this project in Cursor
+Then start a **new chat** and ask in plain language. The assistant should call the tools.
 
-Connecting MCP in Settings is not enough. You must **open this clone as your Cursor workspace**.
-
-1. In Cursor: **File → Open Folder…**
-2. Choose the `hsm-jobs-mcp` folder (the one that contains this README).
-3. Start a **new chat** in that window.
-
-If you chat from a different folder, Cursor may search local files or the web instead of calling `hsm-jobs`. You will get wrong answers even when MCP shows connected.
-
-### Step 7 — Ask your first question
-
-In the chat for **this** folder, try:
-
-> How fresh is the jobs index?
+- *"Which recognised sponsors are hiring product designers?"*
+- *"Which recognised sponsors are hiring software engineers in Amsterdam?"*
+- *"What jobs do you have for KvK 60733144?"*
+- *"How fresh is the jobs index?"*
+- *"Is Adyen a recognised sponsor?"* → this hits **hsm-mcp**, not this server
 
 **You know MCP worked when:**
 
-- The reply mentions **last successful crawl**, **jobs count**, or **index scope** from live data — not a guess from random websites.
-- The terminal running `npm run dev` prints **`POST /mcp 200`** (or `202`) at the same time as the answer.
-- In Cursor, the reply shows it used an MCP **tool** (for example `get_index_status`).
+- The reply cites **last successful crawl**, **jobs count**, or **index scope** from the index — not a guess from random websites.
+- Cursor shows an MCP **tool** call (for example `get_index_status` or `search_jobs`).
 
-**If the agent searches your repo or talks about unrelated APIs**, you are in the wrong folder or the wrong chat. Open the `hsm-jobs-mcp` folder and start a new chat. You can also ask explicitly: *Use the hsm-jobs MCP tool `get_index_status`.*
-
-Then try a job search:
-
-> Which recognised sponsors are hiring product designers?
-
-### Optional settings
-
-Copy [`.env.example`](.env.example) to `.env` if you want to change defaults. Most people do not need this for a first try.
-
-| Setting | Default | When to change it |
-| ------- | ------- | ----------------- |
-| `JOBS_INDEX_TARGET` | `local-d1` | Rarely — keeps job data on your machine |
-| `PRIVATE_RELEASE_ORIGIN` | `http://127.0.0.1:8787` | If `npm run dev` uses a different port |
+If the assistant only searches the web, say: *Use the hsm-jobs MCP tool `get_index_status`.*
 
 ---
 
@@ -181,19 +62,9 @@ Copy [`.env.example`](.env.example) to `.env` if you want to change defaults. Mo
 - Finds **Openings** — live jobs on employer careers and ATS pages.
 - Shows **register join** on each job: company name, KvK number, and how strong the match is. This is **not** a promise that the job will sponsor your visa.
 - Shows **honesty fields**: salary info, Dutch language requirement, sponsorship willingness. **Unknown** is a normal answer.
-- Shows **index scope** on every answer. If the index is incomplete, empty search results do **not** mean no jobs exist anywhere.
+- Shows **index scope** on every answer.
 
 Register-only questions belong on **hsm-mcp**, not here.
-
-## What you can ask
-
-After step 7, ask in plain language in a chat for **this** folder:
-
-- *"Which recognised sponsors are hiring product designers?"*
-- *"Which recognised sponsors are hiring software engineers in Amsterdam?"*
-- *"What jobs do you have for KvK 60733144?"*
-- *"How fresh is the jobs index?"*
-- *"Is Adyen a recognised sponsor?"* → ask **hsm-mcp**, not this tool
 
 ## The three tools
 
@@ -213,23 +84,169 @@ After step 7, ask in plain language in a chat for **this** folder:
 
 Check employer careers pages and the [official IND register](https://ind.nl/en/public-register-recognised-sponsors/public-register-work) before you act on anything important.
 
-## Connect to the public site
+---
 
-Use these URLs to connect without running a local server:
+## Architecture
+
+```mermaid
+flowchart LR
+    client["AI client<br/>(Claude, Cursor, any MCP client)"]
+    hsmMcp["hsm-mcp<br/>(register lookup)"]
+    careers["Employer careers / ATS<br/>(public feeds + HTML)"]
+
+    subgraph crawl["Crawl plane (out of band)"]
+        gh["GitHub Actions /<br/>operator CLI"]
+    end
+
+    subgraph cf["Cloudflare Workers + D1"]
+        worker["Worker<br/>GET / · /mcp · /health · .well-known"]
+        d1[("D1 jobs index<br/>Openings + terminal outcomes")]
+    end
+
+    client -- "Streamable HTTP /mcp" --> worker
+    worker -- "read index" --> d1
+    worker -- "hybrid register join<br/>revalidate at query time" --> hsmMcp
+    gh -- "Opening refresh +<br/>full careers pass" --> d1
+    gh -- "fetch feeds/HTML" --> careers
+```
+
+| Path | What happens |
+| ---- | ------------ |
+| `GET /` | Human discovery page (connect, tools, example asks) |
+| `/mcp` | Streamable HTTP → `search_jobs` · `get_job` · `get_index_status` |
+| `/health` | Coarse operator health |
+
+More paths, env, and crawl ops: [docs/README-developers.md](docs/README-developers.md). Stack lock: [ADR 0009](docs/adr/0009-v1-stack-and-hosting.md).
+
+---
+
+## Try it on your computer
+
+Use this section only if you want a **local** copy of the index (to develop, or to try the server without the public URL).
+
+The public URL above already serves the shared index. Local `http://127.0.0.1:8787/mcp` is a **different** index on your machine. Point your AI tool at **one** jobs URL at a time.
+
+You need Node.js **20 or newer** (tests use Node 24) and an MCP client (Cursor, Claude Code, or Claude Desktop).
 
 ```bash
-claude mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
+node --version
+npm --version
+```
+
+If you see `command not found`, install Node.js from [nodejs.org](https://nodejs.org/) (LTS), then run the commands again.
+
+### Get the code
+
+**Option A — clone (recommended)**
+
+```bash
+git clone https://github.com/musavvirahmed/hsm-jobs-mcp.git
+cd hsm-jobs-mcp
+```
+
+**Option B — download without git**
+
+1. Open [github.com/musavvirahmed/hsm-jobs-mcp](https://github.com/musavvirahmed/hsm-jobs-mcp).
+2. Click **Code** → **Download ZIP**.
+3. Unzip the file and open a terminal in the unzipped folder.
+
+### Step 1 — Install dependencies
+
+Open a terminal in the project folder (the folder that contains this README).
+
+```bash
+npm ci
+```
+
+This usually takes about **one minute**.
+
+You will use **two terminals**. Step 2 finishes in the first. Step 3 starts the server in a second terminal and leaves it running. Step 4 uses the first terminal again.
+
+### Step 2 — Download job listings
+
+In the **same** terminal as step 1, run a **fixture** crawl first (seconds to about **one minute**):
+
+```bash
+npm run crawl:smoke
+```
+
+Wait until JSON prints at the end. There is no progress bar. The process is working if the terminal is still busy.
+
+`npm run crawl` (without `:smoke`) talks to the live register. That run can take **many minutes to hours** and also prints JSON only at the end. Use it when you want a live local index, not for a first try.
+
+### Step 3 — Start the local server
+
+Open a **<u>new</u>** terminal window or tab in the **<u>same</u>** project folder. Run:
+
+```bash
+npm run dev
+```
+
+Leave this terminal open. The server uses [http://127.0.0.1:8787](http://127.0.0.1:8787) by default. It will keep running until you stop it.
+
+Ready usually takes **under 30 seconds**. The MCP URL is `http://127.0.0.1:8787/mcp`.
+
+### Step 4 — Check that it works
+
+In a terminal that is **not** running `npm run dev` — the one you used for steps 1 and 2 is fine.
+
+```bash
+npm run private-release:verify
+```
+
+If you see `ready at http://127.0.0.1:8787/mcp`, you are good. This check usually takes **a few seconds**.
+
+If it fails:
+
+1. Make sure step 2 finished without errors.
+2. Make sure step 3 is still running in the other terminal.
+3. Run step 4 again in a terminal that is not running the server.
+
+### Step 5 — Point your AI tool at localhost
+
+Change **only** the jobs URL to your machine. Keep hsm-mcp on the public register server.
+
+```json
+{
+  "mcpServers": {
+    "hsm-jobs": { "url": "http://127.0.0.1:8787/mcp" },
+    "ind-sponsors": { "url": "https://hsm.codealan.com/mcp" }
+  }
+}
+```
+
+```bash
+claude mcp add --transport http hsm-jobs http://127.0.0.1:8787/mcp
 claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 ```
 
-No login required in v1.
+Use localhost here so you talk to **your** index. The public URL talks to the **shared** index. Both work. They are not the same database.
 
-Empty search results mean no matching openings in the index right now. Coverage is a full careers pass over the current Work register (not “companies not crawled yet”).
+If you skip steps 1–4 and connect to localhost anyway, Cursor will show an error: nothing is listening on port 8787. Connect to `https://hsmjobs.musavvir.work/mcp` instead, or finish steps 1–4 first.
+
+### Step 6 — Ask from this folder
+
+1. In Cursor: **File → Open Folder…**
+2. Choose the `hsm-jobs-mcp` folder (the one that contains this README).
+3. Start a **new chat** in that window.
+
+If you chat from a different folder, Cursor may search local files instead of calling `hsm-jobs`.
+
+Ask: *How fresh is the jobs index?* You know the **local** server worked when the `npm run dev` terminal prints `POST /mcp 200` (or `202`).
+
+### Optional settings
+
+Copy [`.env.example`](.env.example) to `.env` if you want to change defaults. Most people do not need this for a first try.
+
+| Setting | Default | When to change it |
+| ------- | ------- | ----------------- |
+| `JOBS_INDEX_TARGET` | `local-d1` | Rarely — keeps job data on your machine |
+| `PRIVATE_RELEASE_ORIGIN` | `http://127.0.0.1:8787` | If `npm run dev` uses a different port |
+
+---
 
 ## For developers
 
-Operator env contract, architecture diagram, HTTP paths, and CI notes: [docs/README-developers.md](docs/README-developers.md).
-
-Stack and hosting decisions: [ADR 0009](docs/adr/0009-v1-stack-and-hosting.md).
+Operator env contract, crawl schedule, HTTP paths, and CI: [docs/README-developers.md](docs/README-developers.md).
 
 Unofficial project. Job listings © respective employers. Register data © IND via hsm-mcp.
