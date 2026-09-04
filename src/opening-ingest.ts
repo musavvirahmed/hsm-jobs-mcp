@@ -84,13 +84,17 @@ export async function ingestWebsiteResolutions(opts: {
   index: WritableJobsIndex;
   providers: WebsiteResolutionProviders;
   now?: () => string;
+  onProgress?: (message: string) => void;
 }): Promise<WebsiteIngestReport> {
   const now = opts.now ?? (() => new Date().toISOString());
   const stamp = now();
   const register = await opts.register.load();
   const results: WebsiteIngestResult[] = [];
+  const total = register.sponsors.length;
 
-  for (const sponsor of register.sponsors) {
+  for (let i = 0; i < register.sponsors.length; i += 1) {
+    const sponsor = register.sponsors[i]!;
+    opts.onProgress?.(`website ${i + 1}/${total} ${sponsor.kvk}`);
     const override = await opts.index.getWebsiteOverride(sponsor.kvk);
     const previousHost = await opts.index.getOfficialWebsite(sponsor.kvk);
     const resolved = await resolveOfficialWebsite(sponsor, opts.providers, override);

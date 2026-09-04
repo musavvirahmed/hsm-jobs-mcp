@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createProductionCrawlRuntime } from "../src/crawl-runtime";
+import { crawlProgressLine, crawlStartLines } from "../src/crawl-cli-progress";
 import { createAshbyBoardFeedFetcher } from "../src/ashby-board";
 import { createPlaywrightPageGetter } from "../src/browser-harvest";
 import { runFullCareersPass } from "../src/full-careers-pass";
@@ -25,6 +26,10 @@ const RECORDED_ASHBY_FEED = readFileSync(
 const RENTMAN_HOME = "<html><body><h1>Rentman</h1><p>Event rental software.</p></body></html>";
 const PRODUCT_DESIGNER_CAREERS =
   "<html><head><title>Product Designer</title></head><body><h1>Product Designer</h1><p>Utrecht</p></body></html>";
+
+function logCrawl(message: string): void {
+  console.error(crawlProgressLine(message));
+}
 
 async function main(): Promise<void> {
   let closeRuntime: (() => Promise<void>) | undefined;
@@ -64,7 +69,11 @@ async function runCrawl(
   const maxAttempts = process.env.CRAWL_MAX_ATTEMPTS
     ? Number(process.env.CRAWL_MAX_ATTEMPTS)
     : undefined;
+  console.error("[crawl] starting…");
   const { index, targetLabel } = await createCrawlJobsIndex({ smoke });
+  for (const line of crawlStartLines({ smoke, fullPass, targetLabel })) {
+    console.error(line);
+  }
   const now = () => new Date().toISOString();
 
   if (fixtureRegister) {
@@ -76,6 +85,7 @@ async function runCrawl(
     await index.setBoardSeed(RENTMAN_ASHBY_BOARD_SEED, now());
   }
 
+  logCrawl(smoke ? "building smoke runtime" : "building live crawl runtime");
   const runtime = smoke
     ? {
         register: createFixtureRegister(
@@ -120,6 +130,7 @@ async function runCrawl(
         providers: runtime.providers,
         getBrowserPage: runtime.getBrowserPage,
         maxAttempts,
+        onProgress: logCrawl,
       })
     : await runOutOfBandCrawl({
         register: runtime.register,
@@ -133,6 +144,7 @@ async function runCrawl(
         failureAlertThreshold: Number(
           process.env.CRAWL_FAILURE_ALERT_THRESHOLD ?? DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
         ),
+        onProgress: logCrawl,
       });
 
   const snapshot = await index.snapshot();

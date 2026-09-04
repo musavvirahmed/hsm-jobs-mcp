@@ -1,3 +1,4 @@
+import type { CrawlProgress } from "./crawl-cli-progress";
 import {
   listMissingTerminalOutcomeKvks,
   reconcileIndexPass,
@@ -40,9 +41,14 @@ export async function runFullCareersPass(opts: {
   now?: () => string;
   /** Cap how many missing KvKs this invocation attempts (resumable batches). */
   maxAttempts?: number;
+  onProgress?: CrawlProgress;
 }): Promise<FullCareersPassReport> {
   const now = opts.now ?? (() => new Date().toISOString());
+  const progress = opts.onProgress;
   const register = await opts.register.load();
+  progress?.(
+    `register loaded: ${register.sponsors.length} sponsors (as of ${register.asOf})`,
+  );
 
   await opts.index.setRegisterMeta({
     register_size: register.sponsors.length,
@@ -58,6 +64,9 @@ export async function runFullCareersPass(opts: {
 
   const budget = opts.maxAttempts ?? missingBefore.length;
   const batch = missingBefore.slice(0, Math.max(0, budget));
+  progress?.(
+    `full-pass batch: ${batch.length} of ${missingBefore.length} missing KvK(s)`,
+  );
 
   let websiteIngest: WebsiteIngestReport | null = null;
   let ladderIngest: LadderIngestReport | null = null;
@@ -70,11 +79,13 @@ export async function runFullCareersPass(opts: {
       }
     }
     if (needWebsite.length > 0) {
+      progress?.(`website resolution: ${needWebsite.length} KvK(s)`);
       websiteIngest = await ingestWebsiteResolutions({
         register: createRegisterSubset(opts.register, new Set(needWebsite)),
         index: opts.index,
         providers: opts.providers,
         now,
+        onProgress: progress,
       });
     }
 
@@ -85,6 +96,7 @@ export async function runFullCareersPass(opts: {
       }
     }
     if (stillMissing.length > 0) {
+      progress?.(`extraction ladder: ${stillMissing.length} KvK(s)`);
       ladderIngest = await ingestExtractionLadder({
         register: createRegisterSubset(opts.register, new Set(stillMissing)),
         index: opts.index,
@@ -93,6 +105,9 @@ export async function runFullCareersPass(opts: {
         getBrowserPage: opts.getBrowserPage,
         now,
       });
+      progress?.(
+        `extraction ladder done: ${ladderIngest.results.length} result(s)`,
+      );
     }
   }
 

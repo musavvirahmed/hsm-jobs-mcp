@@ -170,9 +170,9 @@ In the **same** terminal as step 1, run a **fixture** crawl first (seconds to ab
 npm run crawl:smoke
 ```
 
-Wait until JSON prints at the end. There is no progress bar. The process is working if the terminal is still busy.
+You will see `[crawl]` status lines while it runs. Wait for the JSON report at the end. There is no progress bar.
 
-`npm run crawl` (without `:smoke`) talks to the live register. That run can take **many minutes to hours** and also prints JSON only at the end. Use it when you want a live local index, not for a first try.
+`npm run crawl` (without `:smoke`) loads the live register. That run can take **many minutes to hours**. Prefer the shared MCP at `https://hsmjobs.musavvir.work/mcp`. Or keep using `npm run crawl:smoke`. Use the live crawl only when you need a live local index.
 
 ### Step 3 — Start the local server
 
