@@ -104,7 +104,7 @@ Crawl steps redirect JSON to artifacts (`npm run --silent … > report.json`), s
 gh run download RUN_ID -n catchup-report -D .
 ```
 
-**D1 budget (first full pass):** Cloudflare free-tier daily `rows_read` can stop a multi-thousand-KvK remote crawl mid-day (error code 7500 / “wait until midnight UTC”). For a fast first pass (~hours to a few days), use **Workers Paid** or wait for the UTC midnight reset. After shared release, small daily catch-up usually fits free tier; paid removes the hard daily wall.
+**D1 budget (first full pass):** Cloudflare free-tier daily `rows_read` can stop a multi-thousand-KvK remote crawl mid-day (error code 7500 / “wait until midnight UTC”). For a fast first pass (~hours to a few days), use **Workers Paid** or wait for the UTC midnight reset. After shared release, small daily catch-up usually fits free tier; paid removes the hard daily wall. Do not drop Paid on chat advice alone — measure usage (Human operator step 10).
 
 Do **not** run a local `JOBS_INDEX_TARGET=remote-d1` crawl while the schedule is on or a production run is in progress.
 
@@ -210,6 +210,16 @@ Disable the workflow in the Actions UI to block dispatch too.
 Stale **hsm-mcp**: do not tight-loop dispatch; fix upstream (`HSM_MCP_ORIGIN`, default `https://hsm.codealan.com`), then one `gh workflow run crawl-production.yml`.
 
 Never run a local `JOBS_INDEX_TARGET=remote-d1` crawl while the schedule variable is `true` or a production run is in progress.
+
+**10. Workers Paid review (after shared release + schedule on)**
+
+[ADR 0009](adr/0009-v1-stack-and-hosting.md) prefers free tier. Keep **Workers Paid** through the first full careers pass and the first days of scheduled maintenance. Then decide from the Cloudflare usage dashboard — not from chat.
+
+1. Wait for **at least 3 successful scheduled** `crawl-production` runs (or 3 calendar days with the schedule on — whichever is later).
+2. Check D1 **rows read** and **rows written** for those days. Watch Actions logs for error 7500 / free-tier daily limit messages.
+3. **Keep Paid** if any day is near Free caps (5M reads / 100k writes per day) or a fat catch-up day would fail mid-run. **Downgrade to Free** only if every observed day stays well under those caps (comfortable margin) and `/mcp` plus the crawl stay healthy.
+4. After a downgrade, watch the next 1–2 scheduled runs. Re-enable Paid if a run fails on quota.
+5. Record the decision on the open task [Review Workers Paid after scheduled production crawls](https://github.com/musavvirahmed/hsm-jobs-mcp/issues/56) (or close that issue with measured numbers).
 
 ## Architecture
 
