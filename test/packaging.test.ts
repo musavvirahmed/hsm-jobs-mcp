@@ -141,6 +141,14 @@ test("GET /assets/favicon.webp and /favicon.ico serve the webp bytes", async () 
   expect(assetBytes.byteLength).toBeGreaterThan(100);
   expect(assetBytes[0]).toBe(0x52); // R of RIFF
   expect(icoBytes).toEqual(assetBytes);
+
+  const head = await handleRequest(
+    new Request(`${SHARED_RELEASE_ORIGIN}/assets/favicon.webp`, { method: "HEAD" }),
+    emptyDeps(),
+  );
+  expect(head.status).toBe(200);
+  expect(head.headers.get("content-type")).toBe("image/webp");
+  expect((await head.arrayBuffer()).byteLength).toBe(0);
 });
 
 test("GET /.well-known/mcp.json serves a server card", async () => {

@@ -13,8 +13,15 @@ export async function handleRequest(request: Request, deps: JobsToolsDeps): Prom
   if (url.pathname === "/" && request.method === "GET") {
     return discoveryPageResponse(url.origin);
   }
-  if (request.method === "GET" && isFaviconPath(url.pathname)) {
-    return faviconResponse();
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    isFaviconPath(url.pathname)
+  ) {
+    const response = faviconResponse();
+    if (request.method === "HEAD") {
+      return new Response(null, { status: 200, headers: response.headers });
+    }
+    return response;
   }
   if (
     request.method === "GET" &&
