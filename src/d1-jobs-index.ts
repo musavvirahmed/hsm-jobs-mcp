@@ -154,6 +154,10 @@ type BoardSeedRow = {
   public_board_feed_url: string | null;
 };
 
+function boardKey(atsFamily: string, boardToken: string): string {
+  return `${atsFamily}\0${boardToken}`;
+}
+
 export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIndex {
   const readable = createD1JobsIndex(db);
   return {
@@ -290,23 +294,31 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
       }));
     },
     async listBoardSeedRefreshQueue() {
-      const result = await db
+      // Two cheap round-trips + join in JS. A correlated EXISTS over openings
+      // for every board_seeds row exceeds remote D1 CPU (~4k seeds × ~10k openings).
+      const seeds = await db
         .prepare(
-          `SELECT s.kvk, s.ats_family, s.board_token, s.public_board_feed_url, s.updated_at,
-                  CASE WHEN EXISTS (
-                    SELECT 1 FROM openings o
-                    WHERE o.ats_family = s.ats_family AND o.board_token = s.board_token
-                  ) THEN 1 ELSE 0 END AS has_openings
-           FROM board_seeds s`,
+          `SELECT kvk, ats_family, board_token, public_board_feed_url, updated_at
+           FROM board_seeds`,
         )
-        .all<BoardSeedRow & { updated_at: string; has_openings: number }>();
-      return result.results.map((row) => ({
+        .all<BoardSeedRow & { updated_at: string }>();
+      const liveBoards = await db
+        .prepare(
+          `SELECT DISTINCT ats_family, board_token
+           FROM openings
+           WHERE ats_family IS NOT NULL AND board_token IS NOT NULL`,
+        )
+        .all<{ ats_family: string; board_token: string }>();
+      const live = new Set(
+        liveBoards.results.map((row) => boardKey(row.ats_family, row.board_token)),
+      );
+      return seeds.results.map((row) => ({
         kvk: row.kvk,
         ats_family: row.ats_family,
         board_token: row.board_token,
         public_board_feed_url: row.public_board_feed_url,
         updated_at: row.updated_at,
-        has_openings: Number(row.has_openings) === 1,
+        has_openings: live.has(boardKey(row.ats_family, row.board_token)),
       }));
     },
     async listOpeningsByBoard(atsFamily, boardToken) {

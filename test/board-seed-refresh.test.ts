@@ -1,9 +1,12 @@
 import { expect, test } from "vitest";
+import type { OpeningRecord } from "../src/jobs-index";
 import {
+  loadBoardSeedsForOpeningRefresh,
   parseCrawlRefreshMaxSeeds,
   selectBoardSeedsForOpeningRefresh,
   type BoardSeedRefreshRow,
 } from "../src/board-seed-refresh";
+import { createEmptyWritableJobsIndex } from "./sqlite-writable-index";
 
 function seed(
   kvk: string,
@@ -66,3 +69,70 @@ test("parseCrawlRefreshMaxSeeds treats 0 as uncapped and blanks as the default",
   expect(parseCrawlRefreshMaxSeeds("0")).toBe(Number.POSITIVE_INFINITY);
   expect(parseCrawlRefreshMaxSeeds("250")).toBe(250);
 });
+
+test("listBoardSeedRefreshQueue joins openings in memory (live vs empty)", async () => {
+  const index = createEmptyWritableJobsIndex();
+  await index.setBoardSeed(
+    {
+      kvk: "60733144",
+      ats_family: "ashby",
+      board_token: "rentman",
+      public_board_feed_url: "https://api.ashbyhq.com/posting-api/job-board/rentman",
+    },
+    "2026-08-01T00:00:00Z",
+  );
+  await index.setBoardSeed(
+    {
+      kvk: "12345678",
+      ats_family: "ashby",
+      board_token: "empty-co",
+      public_board_feed_url: "https://api.ashbyhq.com/posting-api/job-board/empty-co",
+    },
+    "2026-07-01T00:00:00Z",
+  );
+  await index.upsertOpening(sampleOpening({ board_token: "rentman" }));
+
+  const queue = await index.listBoardSeedRefreshQueue();
+  expect(queue).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        board_token: "rentman",
+        has_openings: true,
+        updated_at: "2026-08-01T00:00:00Z",
+      }),
+      expect.objectContaining({
+        board_token: "empty-co",
+        has_openings: false,
+        updated_at: "2026-07-01T00:00:00Z",
+      }),
+    ]),
+  );
+
+  const loaded = await loadBoardSeedsForOpeningRefresh(index, { maxSeeds: 1 });
+  expect(loaded.total).toBe(2);
+  expect(loaded.selected.map((row) => row.board_token)).toEqual(["rentman"]);
+});
+
+function sampleOpening(
+  partial: Partial<OpeningRecord> & Pick<OpeningRecord, "board_token">,
+): OpeningRecord {
+  return {
+    identity: `ashby:${partial.board_token}:post-1`,
+    primary_url: `https://example.com/jobs/${partial.board_token}`,
+    careers_url: `https://example.com/jobs/${partial.board_token}`,
+    ats_url: null,
+    title: "Engineer",
+    location: null,
+    jd_extract: null,
+    source_class: "ats_board",
+    honesty_salary: "unknown",
+    honesty_dutch_required: "unknown",
+    honesty_sponsorship_willingness: "unknown",
+    register_name: "Example B.V.",
+    register_kvk: "60733144",
+    register_join_strength: "exact_kvk",
+    ats_family: "ashby",
+    posting_id: "post-1",
+    ...partial,
+  };
+}
