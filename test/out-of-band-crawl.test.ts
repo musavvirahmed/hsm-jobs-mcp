@@ -238,6 +238,73 @@ test("out-of-band crawl reports register, board, and website progress", async ()
   expect(progress.some((line) => /website \d+\/\d+/.test(line))).toBe(true);
 });
 
+test("out-of-band opening refresh caps the seed queue and still includes empty boards", async () => {
+  const { index } = await seedRentmanBoard();
+  await index.setBoardSeed(
+    {
+      kvk: "10000001",
+      ats_family: "ashby",
+      board_token: "empty-old",
+      public_board_feed_url:
+        "https://api.ashbyhq.com/posting-api/job-board/empty-old?includeCompensation=true",
+    },
+    "2026-07-01T00:00:00Z",
+  );
+  await index.setBoardSeed(
+    {
+      kvk: "10000002",
+      ats_family: "ashby",
+      board_token: "empty-new",
+      public_board_feed_url:
+        "https://api.ashbyhq.com/posting-api/job-board/empty-new?includeCompensation=true",
+    },
+    "2026-09-01T00:00:00Z",
+  );
+
+  const fetched: string[] = [];
+  const progress: string[] = [];
+  await runOutOfBandCrawl({
+    register: createFixtureRegister([RENTMAN], "2026-08-03"),
+    index,
+    fetchBoardFeed: async (url) => {
+      fetched.push(url);
+      if (url === ASHBY_RENTMAN_FEED_URL) {
+        return { ok: true, status: 200, body: RECORDED_ASHBY_FEED };
+      }
+      return { ok: true, status: 200, body: JSON.stringify({ jobs: [] }) };
+    },
+    providers: rentmanProviders(),
+    now: () => LATER,
+    maxRefreshSeeds: 2,
+    onProgress: (message) => progress.push(message),
+  });
+
+  expect(fetched).toEqual([
+    ASHBY_RENTMAN_FEED_URL,
+    "https://api.ashbyhq.com/posting-api/job-board/empty-old?includeCompensation=true",
+  ]);
+  expect(progress.some((line) => /board refresh: 2 of 3 seed/.test(line))).toBe(true);
+});
+
+test("boardRefreshOnly skips website/ladder so opening-refresh cannot swallow catch-up work", async () => {
+  const index = createEmptyWritableJobsIndex();
+  await index.setBoardSeed(RENTMAN_ASHBY_BOARD_SEED, NOW);
+  const progress: string[] = [];
+
+  await runOutOfBandCrawl({
+    register: createFixtureRegister([RENTMAN, ACME], "2026-08-03"),
+    index,
+    fetchBoardFeed: recordedAshbyFeed([]),
+    providers: rentmanProviders(),
+    now: () => LATER,
+    boardRefreshOnly: true,
+    onProgress: (message) => progress.push(message),
+  });
+
+  expect(progress.some((line) => /website \d+\/\d+/.test(line))).toBe(false);
+  expect(progress.some((line) => /skipping website\/ladder/.test(line))).toBe(true);
+});
+
 async function seedRentmanBoard() {
   const index = createEmptyWritableJobsIndex();
   const getPage = fakeGetPage(rentmanPages());

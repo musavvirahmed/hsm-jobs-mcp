@@ -1,4 +1,5 @@
 import type { CrawlProgress } from "./crawl-cli-progress";
+import { loadBoardSeedsForOpeningRefresh } from "./board-seed-refresh";
 import {
   ingestExtractionLadder,
   ingestFromBoardSeeds,
@@ -50,6 +51,9 @@ export async function runOutOfBandCrawl(opts: {
   alert?: CrawlAlertHook;
   failureAlertThreshold?: number;
   onProgress?: CrawlProgress;
+  maxRefreshSeeds?: number;
+  /** Skip website/ladder for missing KvKs (production opening-refresh; catch-up is a separate job). */
+  boardRefreshOnly?: boolean;
 }): Promise<OutOfBandCrawlReport> {
   const now = opts.now ?? (() => new Date().toISOString());
   const threshold = opts.failureAlertThreshold ?? DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD;
@@ -73,14 +77,23 @@ export async function runOutOfBandCrawl(opts: {
     rePartialed = true;
   }
 
-  const boardSeeds = await opts.index.listBoardSeeds();
-  progress?.(`board refresh: ${boardSeeds.length} seed(s)`);
+  const boardSeeds = await loadBoardSeedsForOpeningRefresh(opts.index, {
+    maxSeeds: opts.maxRefreshSeeds,
+  });
+  const uncapped = !Number.isFinite(boardSeeds.maxSeeds);
+  progress?.(
+    uncapped
+      ? `board refresh: ${boardSeeds.selected.length} of ${boardSeeds.total} seed(s) (no cap)`
+      : `board refresh: ${boardSeeds.selected.length} of ${boardSeeds.total} seed(s) (live boards first, then stale; cap ${boardSeeds.maxSeeds})`,
+  );
   const openingsRefresh = await ingestFromBoardSeeds({
     register: opts.register,
     index: opts.index,
     fetchBoardFeed: opts.fetchBoardFeed,
     getPage,
     now,
+    seeds: boardSeeds.selected,
+    onProgress: progress,
   });
   progress?.(
     `board refresh done: ${openingsRefresh.results.length} result(s)`,
@@ -90,7 +103,16 @@ export async function runOutOfBandCrawl(opts: {
   let ladderIngest: LadderIngestReport | null = null;
 
   const stillMissing = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
-  if (stillMissing.length > 0) {
+  const boardRefreshOnly =
+    opts.boardRefreshOnly === true ||
+    process.env.CRAWL_BOARD_REFRESH_ONLY === "1" ||
+    process.env.CRAWL_BOARD_REFRESH_ONLY === "true";
+  if (stillMissing.length > 0 && boardRefreshOnly) {
+    progress?.(
+      `skipping website/ladder for ${stillMissing.length} missing KvK(s) (board refresh only)`,
+    );
+  }
+  if (stillMissing.length > 0 && !boardRefreshOnly) {
     const missingRegister = createRegisterSubset(opts.register, new Set(stillMissing));
     progress?.(`website resolution: ${stillMissing.length} KvK(s)`);
     websiteIngest = await ingestWebsiteResolutions({

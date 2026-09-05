@@ -256,6 +256,10 @@ test("developer README and workflows document gated production crawl", () => {
   expect(production).toContain("playwright install");
   expect(production).toContain("JOBS_INDEX_TARGET: remote-d1");
   expect(production).toContain("catch_up_max_attempts");
+  expect(production).toContain("CRAWL_REFRESH_MAX_SEEDS");
+  expect(production).toContain("CRAWL_BOARD_REFRESH_ONLY");
+  expect(developerReadme).toContain("CRAWL_REFRESH_MAX_SEEDS");
+  expect(developerReadme).toContain("CRAWL_BOARD_REFRESH_ONLY");
   expect(smoke).toContain("CRAWL_SMOKE");
   expect(smoke).not.toContain("JOBS_INDEX_TARGET: remote-d1");
   expect(developerReadme).toMatch(/Automated crawl \(production schedule\)/);

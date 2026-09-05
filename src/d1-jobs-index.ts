@@ -289,6 +289,26 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         public_board_feed_url: row.public_board_feed_url,
       }));
     },
+    async listBoardSeedRefreshQueue() {
+      const result = await db
+        .prepare(
+          `SELECT s.kvk, s.ats_family, s.board_token, s.public_board_feed_url, s.updated_at,
+                  CASE WHEN EXISTS (
+                    SELECT 1 FROM openings o
+                    WHERE o.ats_family = s.ats_family AND o.board_token = s.board_token
+                  ) THEN 1 ELSE 0 END AS has_openings
+           FROM board_seeds s`,
+        )
+        .all<BoardSeedRow & { updated_at: string; has_openings: number }>();
+      return result.results.map((row) => ({
+        kvk: row.kvk,
+        ats_family: row.ats_family,
+        board_token: row.board_token,
+        public_board_feed_url: row.public_board_feed_url,
+        updated_at: row.updated_at,
+        has_openings: Number(row.has_openings) === 1,
+      }));
+    },
     async listOpeningsByBoard(atsFamily, boardToken) {
       const result = await db
         .prepare(
