@@ -111,6 +111,10 @@ export interface WritableJobsIndex extends JobsIndex {
   getWebsiteOverride(kvk: string): Promise<WebsiteOverride | null>;
   setBoardSeed(seed: BoardSeed, now: string): Promise<void>;
   listBoardSeeds(): Promise<BoardSeed[]>;
+  /** Seeds plus `updated_at` and whether that board currently has Openings. */
+  listBoardSeedRefreshQueue(): Promise<
+    Array<BoardSeed & { updated_at: string; has_openings: boolean }>
+  >;
   listOpeningsByBoard(atsFamily: string, boardToken: string): Promise<OpeningRecord[]>;
   listOpeningsByKvk(kvk: string): Promise<OpeningRecord[]>;
   removeOpening(identity: string): Promise<void>;

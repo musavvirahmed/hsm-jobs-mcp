@@ -192,6 +192,24 @@ test("a successful authoritative fetch drops Openings absent from the feed", asy
   ]);
 });
 
+test("reingesting a known posting reuses the stored careers URL and does not re-probe the page", async () => {
+  const { index } = await ingestRentmanGoldenPath();
+  const probed: string[] = [];
+  const inner = fakeGetPage(rentmanPages());
+  await ingestFromBoardSeeds({
+    register: createFixtureRegister([RENTMAN], "2026-08-03"),
+    index,
+    fetchBoardFeed: recordedAshbyFeed([]),
+    getPage: async (url) => {
+      probed.push(url);
+      return inner(url);
+    },
+    now: () => "2026-08-28T00:00:00Z",
+  });
+  expect(probed.some((url) => url.includes("/jobs/product-designer"))).toBe(false);
+  expect(probed.some((url) => url.includes("/jobs/head-of-product-marketing"))).toBe(false);
+});
+
 test("a failed board fetch does not clear known Openings", async () => {
   const { index } = await ingestRentmanGoldenPath();
   const failed = await ingestFromBoardSeeds({

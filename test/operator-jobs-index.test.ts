@@ -199,6 +199,49 @@ test("listMissingTerminalOutcomeKvks loads recorded KvKs in one query", async ()
   expect(sql.some((item) => /WHERE kvk = \?1/i.test(item))).toBe(false);
 });
 
+test("listBoardSeedRefreshQueue uses two cheap queries (no correlated EXISTS)", async () => {
+  const client = createStubRemoteD1QueryClient();
+  const index = await createRemoteD1WritableJobsIndex({
+    client,
+    skipMigrations: true,
+  });
+  await index.setBoardSeed(
+    {
+      kvk: "60733144",
+      ats_family: "ashby",
+      board_token: "rentman",
+      public_board_feed_url: "https://api.ashbyhq.com/posting-api/job-board/rentman",
+    },
+    "2026-08-01T00:00:00Z",
+  );
+  await index.upsertOpening({
+    ...SAMPLE_OPENING,
+    ats_family: "ashby",
+    board_token: "rentman",
+  });
+
+  const sql: string[] = [];
+  const counting: RemoteD1QueryClient = {
+    async query(statement, params) {
+      sql.push(statement);
+      return client.query(statement, params);
+    },
+  };
+  const countedIndex = await createRemoteD1WritableJobsIndex({
+    client: counting,
+    skipMigrations: true,
+  });
+  const queue = await countedIndex.listBoardSeedRefreshQueue();
+  expect(queue).toEqual([
+    expect.objectContaining({ board_token: "rentman", has_openings: true }),
+  ]);
+  expect(sql.some((item) => /\bEXISTS\b/i.test(item))).toBe(false);
+  expect(sql.filter((item) => /FROM board_seeds\b/i.test(item))).toHaveLength(1);
+  expect(sql.filter((item) => /SELECT DISTINCT ats_family, board_token\s+FROM openings/i.test(item))).toHaveLength(
+    1,
+  );
+});
+
 test("Cloudflare remote D1 client retries UND_ERR_SOCKET then succeeds", async () => {
   let attempts = 0;
   const fetchFn: typeof fetch = async () => {

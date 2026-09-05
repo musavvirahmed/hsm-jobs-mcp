@@ -9,6 +9,7 @@ import {
   type V1BoardFamily,
 } from "./board-families";
 import { ashbyBoardFeedUrl, type BoardFeedResponse } from "./ashby-board";
+import type { CrawlProgress } from "./crawl-cli-progress";
 import {
   careersListingUrls,
   extractJobLinksFromCareersHtml,
@@ -171,16 +172,23 @@ export async function ingestFromBoardSeeds(opts: {
   fetchBoardFeed: (url: string) => Promise<BoardFeedResponse>;
   getPage: WebsiteResolutionProviders["getPage"];
   now?: () => string;
+  /** When set, refresh only these seeds (capped daily queue). Default: all seeds. */
+  seeds?: BoardSeed[];
+  onProgress?: CrawlProgress;
 }): Promise<BoardIngestReport> {
   const now = opts.now ?? (() => new Date().toISOString());
   const stamp = now();
   const register = await opts.register.load();
   const sponsors = new Map(register.sponsors.map((row) => [row.kvk, row]));
-  const seeds = await opts.index.listBoardSeeds();
+  const seeds = opts.seeds ?? (await opts.index.listBoardSeeds());
   const results: BoardIngestResult[] = [];
   let anySuccess = false;
 
-  for (const seed of seeds) {
+  for (let i = 0; i < seeds.length; i += 1) {
+    const seed = seeds[i]!;
+    if (i === 0 || (i + 1) % 25 === 0 || i + 1 === seeds.length) {
+      opts.onProgress?.(`board refresh ${i + 1}/${seeds.length}`);
+    }
     const result = await ingestOneBoardSeed({
       seed,
       sponsor: sponsors.get(seed.kvk) ?? null,
@@ -189,6 +197,7 @@ export async function ingestFromBoardSeeds(opts: {
       getPage: opts.getPage,
       stamp,
     });
+    await opts.index.setBoardSeed(seed, stamp);
     results.push(result);
     if (result.status === "indexed" || result.status === "empty_board") anySuccess = true;
   }
@@ -552,6 +561,8 @@ async function writeBoardJobs(opts: {
   index: WritableJobsIndex;
   getPage: WebsiteResolutionProviders["getPage"];
 }): Promise<{ written: number; removed: number }> {
+  const existing = await opts.index.listOpeningsByBoard(opts.family, opts.boardToken);
+  const existingByIdentity = new Map(existing.map((row) => [row.identity, row]));
   const join = registerJoinAtIndexTime(opts.sponsor);
   const seen = new Set<string>();
   const seenPrimaryUrls = new Set<string>();
@@ -560,9 +571,12 @@ async function writeBoardJobs(opts: {
   for (const job of opts.jobs) {
     const identity = `${opts.family}:${opts.boardToken}:${job.id}`;
     seen.add(identity);
-    const careersUrl = opts.officialHost
-      ? await careersUrlIfLive(opts.officialHost, job.title, opts.getPage)
-      : null;
+    const prior = existingByIdentity.get(identity);
+    const careersUrl = prior
+      ? prior.careers_url
+      : opts.officialHost
+        ? await careersUrlIfLive(opts.officialHost, job.title, opts.getPage)
+        : null;
     // Prefer the first-party careers URL when unique; if two postings resolve to the
     // same careers path, keep the ATS job URL so primary_url stays unique per posting.
     let primaryUrl = careersUrl ?? job.jobUrl;
@@ -590,7 +604,6 @@ async function writeBoardJobs(opts: {
     written += 1;
   }
 
-  const existing = await opts.index.listOpeningsByBoard(opts.family, opts.boardToken);
   let removed = 0;
   for (const opening of existing) {
     if (!seen.has(opening.identity)) {

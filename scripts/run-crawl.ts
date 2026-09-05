@@ -145,6 +145,9 @@ async function runCrawl(
           process.env.CRAWL_FAILURE_ALERT_THRESHOLD ?? DEFAULT_CRAWL_FAILURE_ALERT_THRESHOLD,
         ),
         onProgress: logCrawl,
+        boardRefreshOnly:
+          process.env.CRAWL_BOARD_REFRESH_ONLY === "1" ||
+          process.env.CRAWL_BOARD_REFRESH_ONLY === "true",
       });
 
   const snapshot = await index.snapshot();

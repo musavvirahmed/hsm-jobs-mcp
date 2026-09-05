@@ -22,6 +22,8 @@ Copy [`.env.example`](../.env.example) to `.env`. Cloudflare bootstrap keys are 
 | `PRIVATE_RELEASE_ORIGIN` | `http://127.0.0.1:8787` | Base URL for verify and for wiring your MCP client |
 | `PRIVATE_RELEASE_PORT` | `8787` | Local dev port (`private-release:integration` may pick a free port when unset) |
 | `CRAWL_MAX_ATTEMPTS` | (all missing) | Optional cap on missing KvKs per `crawl:full-pass` |
+| `CRAWL_REFRESH_MAX_SEEDS` | `400` | Cap on board seeds per Opening refresh. `0` = no cap. Live boards first, then least-recently refreshed |
+| `CRAWL_BOARD_REFRESH_ONLY` | unset | When `1`/`true`, `npm run crawl` skips website/ladder (production opening-refresh job) |
 | `REMOTE_D1_SKIP_MIGRATIONS` | unset | When `1`/`true`, skip `wrangler d1 migrations apply --remote` on each remote-d1 crawl open (schema already applied) |
 | `HSM_MCP_ORIGIN` | `https://hsm.codealan.com` | Live Work-register source for production crawl |
 
@@ -82,7 +84,7 @@ Two clocks keep the **jobs index** honest after **shared release** (see [ADR 000
 
 | Clock | What | Cadence |
 | ----- | ---- | ------- |
-| Opening refresh | Re-fetch known board paths; close vanished postings | ~daily (`0 5 * * *` UTC) |
+| Opening refresh | Re-fetch a **capped** slice of `board_seeds` (default 400): boards that currently have Openings first, then least-recently refreshed empty boards. Closes vanished postings on live boards; empty boards still rotate in over following days. Production job sets `CRAWL_BOARD_REFRESH_ONLY=1` so this clock does not start website/ladder work. | ~daily (`0 5 * * *` UTC) |
 | Register catch-up | Attempt missing **terminal careers outcomes** (IND register delta) | Same run, cap `CRAWL_MAX_ATTEMPTS` (default 200) |
 
 A new Work-register KvK without a terminal outcome sets pass back to `partial`. Catch-up chips away until missing is 0. At 200 KvKs per day, a full ~13k register is about two months; a typical monthly IND delta is much smaller.
@@ -96,9 +98,9 @@ Two GitHub workflows:
 
 Production has **no `pull_request` trigger**. Cron is a no-op until that repo variable is `true`. Forks never receive production secrets.
 
-While the index is still `partial`, production `opening-refresh` can also attempt missing-KvK website/ladder work (not board seeds only). That job has a **90-minute** timeout. Cancelled refresh with an empty `refresh-report.json` is common; `register-catch-up` may still run and chip the cap. Judge the pilot from **`catchup-report.json`**, not from a green opening-refresh alone.
+After **shared release**, `opening-refresh` stays inside 90 minutes because it caps the seed queue and does not re-probe careers URLs for postings already in the index. Catch-up remains a separate job. While the index is still `partial`, judge missing-KvK progress from **`catchup-report.json`**.
 
-Crawl steps redirect JSON to artifacts (`npm run --silent … > report.json`), so the Actions log looks quiet until the step ends. Download reports from the run **Summary → Artifacts**, or:
+Crawl steps redirect JSON to artifacts (`npm run --silent … > report.json`), so the Actions log looks quiet until the step ends. Stderr progress lines (`[crawl] board refresh N/M`) still show in the job log. Download reports from the run **Summary → Artifacts**, or:
 
 ```bash
 gh run download RUN_ID -n catchup-report -D .
