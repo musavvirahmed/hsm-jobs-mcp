@@ -13,12 +13,6 @@ Throwaway HITL prototype for [Prototype: Unix + Windows terminal MCP mocks for f
 | **B** | Windows CMD | connect + health |
 | **C** | Card crop of A3 | slot framing |
 
-Hosts anonymized (`dev@macbook`).
+Prompt label: `musavvir-info@macbook`.
 
-```bash
-python3 -m http.server 8767 -d prototypes/fyi-terminal-mcp-mocks
-```
-
-Open `http://127.0.0.1:8767/?variant=A1`.
-
-**Winner:** _(pending HITL reaction)_
+**Winner: A1** (macOS Terminal.app · `claude mcp add`). Final card image = human-captured Terminal screenshot (not the HTML mock).
