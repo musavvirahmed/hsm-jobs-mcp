@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE — fyi card terminal MCP mocks</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+
+    :root {
+      --ink: #1c1917;
+      --muted: #57534e;
+      --bar: #1c1917;
+      --stage: #0c0a09;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 15px/1.45 "IBM Plex Sans", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 420px at 12% -8%, #334155 0%, transparent 55%),
+        radial-gradient(700px 380px at 100% 0%, #1e293b 0%, transparent 50%),
+        #e7e5e4;
+      padding: 1.25rem 1.25rem 6.5rem;
+    }
+    .banner {
+      border: 1px dashed #b45309;
+      background: #fffbeb;
+      color: #92400e;
+      padding: 0.55rem 0.75rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      max-width: 56rem;
+    }
+    h1 { font: 600 1.25rem/1.2 "IBM Plex Sans", sans-serif; margin: 0 0 0.35rem; }
+    .meta { color: var(--muted); max-width: 56rem; margin: 0 0 1.25rem; }
+    .meta code {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.85em;
+      background: rgba(255,255,255,0.55);
+      padding: 0.05rem 0.3rem;
+      border-radius: 4px;
+    }
+
+    /* Stage: where the mock lives — card-slot-ish for judgment */
+    .stage-wrap {
+      display: grid;
+      place-items: center;
+      min-height: min(68vh, 640px);
+    }
+    .stage {
+      width: min(920px, 100%);
+      aspect-ratio: 16 / 10;
+      background: var(--stage);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 1px 0 rgba(255,255,255,0.06) inset,
+        0 24px 60px rgba(0,0,0,0.35);
+    }
+    .stage-label {
+      position: absolute;
+      top: 0.65rem;
+      left: 0.75rem;
+      z-index: 5;
+      font: 500 0.68rem/1 "IBM Plex Mono", monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(250,250,249,0.45);
+      pointer-events: none;
+    }
+
+    /* Shared terminal bits */
+    .term {
+      position: absolute;
+      overflow: hidden;
+      font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .term pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .term .dim { opacity: 0.55; }
+    .term .ok { color: #4ade80; }
+    .term .warn { color: #fbbf24; }
+    .term .accent { color: #67e8f9; }
+    .term .pink { color: #f9a8d4; }
+    .term .prompt-user { color: #86efac; }
+    .term .prompt-path { color: #93c5fd; }
+
+    /* ——— Variant A: macOS Terminal.app ——— */
+    .v-a .term {
+      inset: 10% 8% 12% 8%;
+      border-radius: 10px;
+      background: #1d1f21;
+      color: #e8e8e8;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.5),
+        0 18px 40px rgba(0,0,0,0.45);
+    }
+    .v-a .chrome {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      height: 2rem;
+      padding: 0 0.75rem;
+      background: linear-gradient(180deg, #3a3a3c 0%, #2c2c2e 100%);
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .v-a .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .v-a .dot.r { background: #ff5f57; }
+    .v-a .dot.y { background: #febc2e; }
+    .v-a .dot.g { background: #28c840; }
+    .v-a .chrome-title {
+      flex: 1;
+      text-align: center;
+      font-size: 11px;
+      color: #a1a1a6;
+      margin-right: 2.2rem;
+    }
+    .v-a .body {
+      padding: 0.85rem 1rem 1rem;
+      height: calc(100% - 2rem);
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(56,189,248,0.06), transparent 50%),
+        #1d1f21;
+    }
+
+    /* ——— Variant B: Windows CMD ——— */
+    .v-b .term {
+      inset: 12% 7% 10% 7%;
+      border-radius: 0;
+      background: #0c0c0c;
+      color: #cccccc;
+      box-shadow:
+        0 0 0 1px #1f1f1f,
+        0 0 0 2px #3d3d3d,
+        0 22px 50px rgba(0,0,0,0.5);
+    }
+    .v-b .chrome {
+      display: flex;
+      align-items: center;
+      height: 2rem;
+      padding: 0 0 0 0.55rem;
+      background: #1f1f1f;
+      border-bottom: 1px solid #2b2b2b;
+      color: #f3f3f3;
+      font-family: "Segoe UI", "IBM Plex Sans", sans-serif;
+      font-size: 12px;
+    }
+    .v-b .win-icon {
+      width: 14px;
+      height: 14px;
+      margin-right: 0.45rem;
+      background:
+        linear-gradient(90deg, #f25022 50%, #7fba00 50%) top / 100% 50% no-repeat,
+        linear-gradient(90deg, #00a4ef 50%, #ffb900 50%) bottom / 100% 50% no-repeat;
+      image-rendering: pixelated;
+      flex-shrink: 0;
+    }
+    .v-b .chrome-title { flex: 1; opacity: 0.92; }
+    .v-b .win-btns {
+      display: flex;
+      height: 100%;
+    }
+    .v-b .win-btns span {
+      width: 2.75rem;
+      display: grid;
+      place-items: center;
+      opacity: 0.85;
+      font-size: 11px;
+    }
+    .v-b .win-btns .x { background: transparent; }
+    .v-b .body {
+      padding: 0.7rem 0.85rem 1rem;
+      height: calc(100% - 2rem);
+      overflow: hidden;
+      background: #0c0c0c;
+      color: #cccccc;
+    }
+    .v-b .cmd-prompt { color: #cccccc; }
+    .v-b .ok { color: #13a10e; }
+    .v-b .accent { color: #3b78ff; }
+    .v-b .warn { color: #c19c00; }
+
+    /* ——— Variant C: card-slot product crop (Unix chrome, tighter) ——— */
+    .v-c .stage {
+      background:
+        linear-gradient(145deg, #1e293b 0%, #0f172a 45%, #020617 100%);
+    }
+    .v-c .term {
+      inset: auto;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%) rotate(-1.5deg);
+      width: 78%;
+      height: 72%;
+      border-radius: 12px;
+      background: #0b1020;
+      color: #e2e8f0;
+      box-shadow:
+        0 0 0 1px rgba(148,163,184,0.25),
+        0 30px 70px rgba(0,0,0,0.55),
+        0 0 80px rgba(56,189,248,0.08);
+    }
+    .v-c .chrome {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      height: 1.75rem;
+      padding: 0 0.65rem;
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
+    }
+    .v-c .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+    .v-c .dot.r { background: #f87171; }
+    .v-c .dot.y { background: #fbbf24; }
+    .v-c .dot.g { background: #34d399; }
+    .v-c .chrome-title {
+      flex: 1;
+      text-align: center;
+      font-size: 10px;
+      color: #64748b;
+      margin-right: 1.6rem;
+    }
+    .v-c .body {
+      padding: 0.65rem 0.8rem;
+      height: calc(100% - 1.75rem);
+      overflow: hidden;
+      font-size: 11.5px;
+      background:
+        linear-gradient(180deg, rgba(14,165,233,0.05), transparent 40%),
+        #0b1020;
+    }
+    .v-c .card-caption {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      bottom: 5.5%;
+      z-index: 4;
+      font: 500 0.72rem/1.3 "IBM Plex Sans", sans-serif;
+      color: rgba(226,232,240,0.55);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    .hidden { display: none !important; }
+
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      background: var(--bar);
+      color: #fafaf9;
+      border-radius: 999px;
+      padding: 0.45rem 0.55rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      z-index: 20;
+      font-size: 0.85rem;
+    }
+    .switcher button {
+      appearance: none;
+      border: 0;
+      background: #44403c;
+      color: inherit;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .switcher button:hover { background: #57534e; }
+    .switcher .label { min-width: 16rem; text-align: center; }
+
+    @media (max-width: 640px) {
+      .stage { aspect-ratio: 4 / 3; }
+      .term { font-size: 11px; }
+      .v-a .term, .v-b .term { inset: 6% 4% 8% 4%; }
+      .v-c .term { width: 88%; height: 68%; }
+      .switcher .label { min-width: 11rem; font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+  <!--
+    PROTOTYPE (throwaway): musavvir.fyi AI Prototypes card image slot
+    Question: do Unix and/or Windows terminal stubs with MCP-ish commands look right — which wins?
+    Variants via ?variant=A|B|C. Ticket: Prototype: Unix + Windows terminal MCP mocks for fyi card visual
+    Run: python3 -m http.server 8767 -d prototypes/fyi-terminal-mcp-mocks
+  -->
+  <div class="banner">
+    THROWAWAY PROTOTYPE — not production. For
+    <strong>Prototype: Unix + Windows terminal MCP mocks for fyi card visual</strong>.
+    Flip A/B/C; react which aesthetic wins for the musavvir.fyi card image slot (Gogoro/PACS parity).
+  </div>
+  <h1>fyi card — terminal MCP mocks</h1>
+  <p class="meta">
+    Three structurally different takes on a screenshot-like terminal invoking <code>hsm-jobs-mcp</code>.
+    Stage is ~16:10 like a portfolio image slot. Arrow keys or the bar cycle variants.
+  </p>
+
+  <div class="stage-wrap">
+    <!-- A: Unix / macOS Terminal -->
+    <div id="variant-A" class="stage v-a" data-name="A (Unix · macOS Terminal)">
+      <div class="stage-label">image slot preview</div>
+      <div class="term" aria-label="macOS Terminal mock">
+        <div class="chrome">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <div class="chrome-title">zsh — hsm-jobs-mcp — 80×24</div>
+        </div>
+        <div class="body">
+<pre><span class="prompt-user">musa@mbp</span> <span class="prompt-path">~/hsm-jobs-mcp</span> <span class="dim">%</span> claude mcp add --transport http hsm-jobs \
+  https://hsmjobs.musavvir.work/mcp
+<span class="ok">✓</span> Added MCP server <span class="accent">hsm-jobs</span>
+
+<span class="prompt-user">musa@mbp</span> <span class="prompt-path">~/hsm-jobs-mcp</span> <span class="dim">%</span> <span class="pink"># in Claude / Cursor</span>
+<span class="dim">→</span> search_jobs  query=<span class="accent">"product designer"</span>  location=<span class="accent">"Utrecht"</span>
+
+<span class="ok">1.</span> Product Designer · Rentman B.V. · KvK 60733144
+   <span class="dim">https://rentman.io/jobs/product-designer</span>
+   honesty_salary=<span class="warn">unknown</span>  join=<span class="ok">exact_kvk</span>
+
+<span class="dim">index_scope: full_careers_pass · results_truncated: false</span>
+<span class="prompt-user">musa@mbp</span> <span class="prompt-path">~/hsm-jobs-mcp</span> <span class="dim">%</span> <span class="blink">▌</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- B: Windows CMD -->
+    <div id="variant-B" class="stage v-b hidden" data-name="B (Windows · Command Prompt)">
+      <div class="stage-label">image slot preview</div>
+      <div class="term" aria-label="Windows Command Prompt mock">
+        <div class="chrome">
+          <span class="win-icon" aria-hidden="true"></span>
+          <div class="chrome-title">Administrator: Command Prompt - hsm-jobs-mcp</div>
+          <div class="win-btns" aria-hidden="true">
+            <span>─</span><span>□</span><span class="x">✕</span>
+          </div>
+        </div>
+        <div class="body">
+<pre>Microsoft Windows [Version 10.0.26100.1]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\Musa\hsm-jobs-mcp&gt; claude mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
+<span class="ok">[OK]</span> MCP server <span class="accent">hsm-jobs</span> registered
+
+C:\Users\Musa\hsm-jobs-mcp&gt; REM Cursor / Claude tool call
+<span class="dim">&gt;</span> search_jobs  query=<span class="accent">"product designer"</span>  location=<span class="accent">"Utrecht"</span>
+
+<span class="ok">1</span> Product Designer - Rentman B.V. (KvK 60733144)
+  <span class="dim">https://rentman.io/jobs/product-designer</span>
+  honesty_salary=<span class="warn">unknown</span>  register_join=<span class="ok">exact_kvk</span>
+
+<span class="dim">index_scope=full_careers_pass  results_truncated=false</span>
+
+C:\Users\Musa\hsm-jobs-mcp&gt; <span class="blink">_</span></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- C: product-shot card crop (Unix chrome, denser hierarchy) -->
+    <div id="variant-C" class="stage v-c hidden" data-name="C (Card crop · product shot)">
+      <div class="stage-label">card crop · device mock parity</div>
+      <div class="term" aria-label="Product-shot terminal mock">
+        <div class="chrome">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <div class="chrome-title">mcp · hsm-jobs</div>
+        </div>
+        <div class="body">
+<pre><span class="dim">$</span> claude mcp add --transport http hsm-jobs \
+    https://hsmjobs.musavvir.work/mcp
+<span class="ok">added</span> <span class="accent">hsm-jobs</span>
+
+<span class="dim">tool</span> search_jobs
+  query <span class="accent">product designer</span>
+  location <span class="accent">Utrecht</span>
+
+<span class="ok">→</span> Rentman · Product Designer
+  KvK <span class="accent">60733144</span> · <span class="ok">exact_kvk</span>
+  salary <span class="warn">unknown</span>
+
+<span class="dim">full_careers_pass</span></pre>
+        </div>
+      </div>
+      <div class="card-caption">tighter crop for AI Prototypes image slot — not a full desktop screenshot</div>
+    </div>
+  </div>
+
+  <div class="switcher" role="navigation" aria-label="Prototype variant switcher">
+    <button type="button" id="prev" aria-label="Previous variant">←</button>
+    <div class="label" id="switch-label"></div>
+    <button type="button" id="next" aria-label="Next variant">→</button>
+  </div>
+
+  <script>
+    const KEYS = ["A", "B", "C"];
+    const params = new URLSearchParams(location.search);
+    let current = (params.get("variant") || "A").toUpperCase();
+    if (!KEYS.includes(current)) current = "A";
+
+    const labelEl = document.getElementById("switch-label");
+
+    function show(key) {
+      current = key;
+      for (const k of KEYS) {
+        document.getElementById("variant-" + k).classList.toggle("hidden", k !== key);
+      }
+      const name = document.getElementById("variant-" + key).dataset.name;
+      labelEl.textContent = name;
+      const url = new URL(location.href);
+      url.searchParams.set("variant", key);
+      history.replaceState(null, "", url);
+    }
+
+    function cycle(delta) {
+      const i = KEYS.indexOf(current);
+      show(KEYS[(i + delta + KEYS.length) % KEYS.length]);
+    }
+
+    document.getElementById("prev").addEventListener("click", () => cycle(-1));
+    document.getElementById("next").addEventListener("click", () => cycle(1));
+    window.addEventListener("keydown", (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === "ArrowLeft") { e.preventDefault(); cycle(-1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); cycle(1); }
+    });
+
+    show(current);
+  </script>
+</body>
+</html>
