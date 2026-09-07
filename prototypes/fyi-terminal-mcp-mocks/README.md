@@ -10,12 +10,17 @@ Throwaway HITL prototype for [Prototype: Unix + Windows terminal MCP mocks for f
 python3 -m http.server 8767 -d prototypes/fyi-terminal-mcp-mocks
 ```
 
-Then open `http://127.0.0.1:8767/?variant=A` (also `B`, `C`). Arrow keys / bottom bar cycle variants.
+Then open `http://127.0.0.1:8767/?variant=A1`. Arrow keys / bottom bar cycle variants.
 
-| Key | Aesthetic |
-|-----|-----------|
-| **A** | Unix · macOS Terminal.app (zsh, traffic lights, `claude mcp add` + `search_jobs`) |
-| **B** | Windows · classic Command Prompt (title bar, `C:\…>`, same MCP story) |
-| **C** | Card crop · product-shot frame (tilted Unix chrome, denser hierarchy for a tight image slot) |
+| Key | Aesthetic / content |
+|-----|---------------------|
+| **A1** | Unix · Claude Code `claude mcp add` (real stdout shape) |
+| **A2** | Unix · `curl …/health` → `{"status":"up"}` |
+| **A3** | Unix · Cursor `mcpServers` JSON via heredoc |
+| **A4** | Unix · stylized *client* `search_jobs` (live IMC/WEBB rows; **not** typed in zsh) |
+| **B** | Windows · Command Prompt (connect + health) |
+| **C** | Card crop of A1 |
+
+**Anonymization:** prompt uses fictional `dev@macbook` — not the operator’s hostname/username.
 
 **Winner:** _(pending HITL reaction)_
