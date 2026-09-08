@@ -20,10 +20,10 @@ function emptyJobsIndexDb(): JobsIndexDatabase {
               source_policy: "first-party careers/ATS only",
               register_join_note:
                 "Hybrid KvK re-validation via upstream hsm-mcp at query time; last-known join plus visible stale/error on degrade.",
+              jobs_count: 0,
+              sponsors_attempted: 0,
+              sponsors_with_openings: 0,
             } as T;
-          }
-          if (sql.includes("COUNT(*)")) {
-            return { n: 0 } as T;
           }
           return null;
         },
@@ -54,4 +54,55 @@ test("get_index_status against an empty D1 jobs index matches the partial empty 
     register_as_of: null,
     omissions_possible: true,
   });
+});
+
+test("get_index_status reads materialized counters from index_meta without COUNT(*)", async () => {
+  const prepared: string[] = [];
+  const db: JobsIndexDatabase = {
+    prepare(sql: string) {
+      prepared.push(sql);
+      const statement = {
+        bind() {
+          return statement;
+        },
+        async first<T = Record<string, unknown>>() {
+          if (sql.includes("FROM index_meta")) {
+            return {
+              pass: "partial",
+              register_size: 12,
+              register_as_of: "2026-09-01",
+              last_successful_crawl: "2026-09-08T00:00:00Z",
+              source_policy: "first-party careers/ATS only",
+              register_join_note: "note",
+              jobs_count: 42,
+              sponsors_attempted: 10,
+              sponsors_with_openings: 3,
+            } as T;
+          }
+          throw new Error(`unexpected query: ${sql}`);
+        },
+        async all<T = Record<string, unknown>>() {
+          return { results: [] as T[] };
+        },
+        async run() {
+          return { success: true };
+        },
+      };
+      return statement;
+    },
+  };
+
+  const result = await getIndexStatus({
+    jobsIndex: createD1JobsIndex(db),
+    hsmMcp: createStubHsmMcp(),
+  });
+
+  expect(result.jobs_count).toBe(42);
+  expect(result.index_scope).toMatchObject({
+    sponsors_attempted: 10,
+    sponsors_with_openings: 3,
+    register_size: 12,
+  });
+  expect(prepared.some((sql) => /COUNT\s*\(/i.test(sql))).toBe(false);
+  expect(prepared.some((sql) => /UNION/i.test(sql))).toBe(false);
 });

@@ -34,6 +34,9 @@ type MetaRow = {
   last_successful_crawl: string | null;
   source_policy: string;
   register_join_note: string;
+  jobs_count: number;
+  sponsors_attempted: number;
+  sponsors_with_openings: number;
 };
 
 type CountRow = { n: number };
@@ -62,35 +65,98 @@ const OPENING_COLUMNS = `identity, primary_url, careers_url, ats_url, title, loc
        source_class, honesty_salary, honesty_dutch_required, honesty_sponsorship_willingness,
        register_name, register_kvk, register_join_strength, ats_family, board_token, posting_id`;
 
+async function refreshStatusCounters(db: JobsIndexDatabase): Promise<void> {
+  const jobs = await db.prepare("SELECT COUNT(*) AS n FROM openings").first<CountRow>();
+  const attempted = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT kvk FROM terminal_careers_outcomes
+         UNION
+         SELECT kvk FROM official_websites
+       )`,
+    )
+    .first<CountRow>();
+  const withOpenings = await db
+    .prepare("SELECT COUNT(*) AS n FROM terminal_careers_outcomes WHERE outcome = 'openings_indexed'")
+    .first<CountRow>();
+  await db
+    .prepare(
+      `UPDATE index_meta
+       SET jobs_count = ?1,
+           sponsors_attempted = ?2,
+           sponsors_with_openings = ?3
+       WHERE singleton = 1`,
+    )
+    .bind(Number(jobs?.n ?? 0), Number(attempted?.n ?? 0), Number(withOpenings?.n ?? 0))
+    .run();
+}
+
+async function adjustJobsCount(db: JobsIndexDatabase, delta: number): Promise<void> {
+  if (delta === 0) return;
+  await db
+    .prepare(
+      `UPDATE index_meta
+       SET jobs_count = MAX(0, jobs_count + ?1)
+       WHERE singleton = 1`,
+    )
+    .bind(delta)
+    .run();
+}
+
+async function adjustSponsorsAttempted(db: JobsIndexDatabase, delta: number): Promise<void> {
+  if (delta === 0) return;
+  await db
+    .prepare(
+      `UPDATE index_meta
+       SET sponsors_attempted = MAX(0, sponsors_attempted + ?1)
+       WHERE singleton = 1`,
+    )
+    .bind(delta)
+    .run();
+}
+
+async function adjustSponsorsWithOpenings(db: JobsIndexDatabase, delta: number): Promise<void> {
+  if (delta === 0) return;
+  await db
+    .prepare(
+      `UPDATE index_meta
+       SET sponsors_with_openings = MAX(0, sponsors_with_openings + ?1)
+       WHERE singleton = 1`,
+    )
+    .bind(delta)
+    .run();
+}
+
+async function kvkIsAttempted(db: JobsIndexDatabase, kvk: string): Promise<boolean> {
+  const website = await db
+    .prepare("SELECT 1 AS present FROM official_websites WHERE kvk = ?1")
+    .bind(kvk)
+    .first<{ present: number }>();
+  if (website) return true;
+  const terminal = await db
+    .prepare("SELECT 1 AS present FROM terminal_careers_outcomes WHERE kvk = ?1")
+    .bind(kvk)
+    .first<{ present: number }>();
+  return Boolean(terminal);
+}
+
 export function createD1JobsIndex(db: JobsIndexDatabase): JobsIndex {
   return {
     async snapshot(): Promise<IndexSnapshot> {
       const meta = await db
         .prepare(
-          `SELECT pass, register_size, register_as_of, last_successful_crawl, source_policy, register_join_note
+          `SELECT pass, register_size, register_as_of, last_successful_crawl, source_policy, register_join_note,
+                  jobs_count, sponsors_attempted, sponsors_with_openings
            FROM index_meta WHERE singleton = 1`,
         )
         .first<MetaRow>();
       if (!meta) {
         return emptyPartialSnapshot();
       }
-      const jobs = await db.prepare("SELECT COUNT(*) AS n FROM openings").first<CountRow>();
-      const attempted = await db
-        .prepare(
-          `SELECT COUNT(*) AS n FROM (
-             SELECT kvk FROM terminal_careers_outcomes
-             UNION
-             SELECT kvk FROM official_websites
-           )`,
-        )
-        .first<CountRow>();
-      const withOpenings = await db
-        .prepare("SELECT COUNT(*) AS n FROM terminal_careers_outcomes WHERE outcome = 'openings_indexed'")
-        .first<CountRow>();
       const pass = meta.pass === "full_careers_pass" ? "full_careers_pass" : "partial";
       const lastSuccessfulCrawl = meta.last_successful_crawl;
       return {
-        jobs_count: Number(jobs?.n ?? 0),
+        jobs_count: Number(meta.jobs_count ?? 0),
         last_successful_crawl: lastSuccessfulCrawl,
         stale: lastSuccessfulCrawl === null,
         coverage_note: pass === "full_careers_pass" ? FULL_COVERAGE_NOTE : EMPTY_COVERAGE_NOTE,
@@ -98,8 +164,8 @@ export function createD1JobsIndex(db: JobsIndexDatabase): JobsIndex {
         register_join_note: meta.register_join_note,
         index_scope: {
           pass,
-          sponsors_attempted: Number(attempted?.n ?? 0),
-          sponsors_with_openings: Number(withOpenings?.n ?? 0),
+          sponsors_attempted: Number(meta.sponsors_attempted ?? 0),
+          sponsors_with_openings: Number(meta.sponsors_with_openings ?? 0),
           register_size: meta.register_size,
           register_as_of: meta.register_as_of,
           omissions_possible: pass === "partial",
@@ -165,6 +231,7 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
     searchOpenings: (args) => readable.searchOpenings(args),
     getOpening: (primaryUrl) => readable.getOpening(primaryUrl),
     async recordWebsiteResolution(input) {
+      const wasAttempted = await kvkIsAttempted(db, input.kvk);
       if (input.official_website_host) {
         await db
           .prepare(
@@ -179,6 +246,9 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
           )
           .bind(input.kvk)
           .run();
+        if (!wasAttempted) {
+          await adjustSponsorsAttempted(db, 1);
+        }
         return;
       }
       await db.prepare("DELETE FROM official_websites WHERE kvk = ?1").bind(input.kvk).run();
@@ -187,6 +257,7 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .bind(input.kvk)
         .first<{ outcome: string }>();
       if (existing && existing.outcome !== "unresolved_website" && !input.replaceClosed) {
+        // Dropped website row; terminal still present → attempted set unchanged.
         return;
       }
       await db
@@ -200,6 +271,12 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         )
         .bind(input.kvk, input.now)
         .run();
+      if (!wasAttempted) {
+        await adjustSponsorsAttempted(db, 1);
+      }
+      if (existing?.outcome === "openings_indexed") {
+        await adjustSponsorsWithOpenings(db, -1);
+      }
     },
     async getOfficialWebsite(kvk) {
       const row = await db
@@ -223,6 +300,11 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
       return rows.results.map((row) => row.kvk);
     },
     async recordTerminalOutcome(input) {
+      const wasAttempted = await kvkIsAttempted(db, input.kvk);
+      const existing = await db
+        .prepare("SELECT outcome FROM terminal_careers_outcomes WHERE kvk = ?1")
+        .bind(input.kvk)
+        .first<{ outcome: string }>();
       await db
         .prepare(
           `INSERT INTO terminal_careers_outcomes (kvk, outcome, official_website_host, updated_at)
@@ -234,6 +316,16 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         )
         .bind(input.kvk, input.outcome, input.official_website_host, input.now)
         .run();
+      if (!wasAttempted) {
+        await adjustSponsorsAttempted(db, 1);
+      }
+      const wasIndexed = existing?.outcome === "openings_indexed";
+      const nowIndexed = input.outcome === "openings_indexed";
+      if (wasIndexed && !nowIndexed) {
+        await adjustSponsorsWithOpenings(db, -1);
+      } else if (!wasIndexed && nowIndexed) {
+        await adjustSponsorsWithOpenings(db, 1);
+      }
     },
     async setWebsiteOverride(kvk, override, now) {
       const pinHost = override.mode === "pin" ? override.host : null;
@@ -344,7 +436,14 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
       return result.results.map(openingFromRow);
     },
     async removeOpening(identity) {
+      const existing = await db
+        .prepare("SELECT identity FROM openings WHERE identity = ?1")
+        .bind(identity)
+        .first<{ identity: string }>();
       await db.prepare("DELETE FROM openings WHERE identity = ?1").bind(identity).run();
+      if (existing) {
+        await adjustJobsCount(db, -1);
+      }
     },
     async recordBoardGuessMiss(input) {
       await db
@@ -394,6 +493,7 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
         .prepare("UPDATE index_meta SET last_successful_crawl = ?1 WHERE singleton = 1")
         .bind(now)
         .run();
+      await refreshStatusCounters(db);
     },
     async setPass(pass) {
       await db
@@ -417,6 +517,14 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
       // primary_url is UNIQUE separately from identity. A new identity that reuses an
       // existing primary_url (e.g. two ATS jobs resolving to the same careers page, or
       // ATS vs careers_site for the same URL) must not abort the crawl.
+      const priorIdentity = await db
+        .prepare("SELECT identity FROM openings WHERE identity = ?1")
+        .bind(opening.identity)
+        .first<{ identity: string }>();
+      const primaryConflict = await db
+        .prepare("SELECT identity FROM openings WHERE primary_url = ?1 AND identity != ?2")
+        .bind(opening.primary_url, opening.identity)
+        .first<{ identity: string }>();
       await db
         .prepare("DELETE FROM openings WHERE primary_url = ?1 AND identity != ?2")
         .bind(opening.primary_url, opening.identity)
@@ -466,6 +574,10 @@ export function createD1WritableJobsIndex(db: JobsIndexDatabase): WritableJobsIn
           opening.posting_id,
         )
         .run();
+      let delta = 0;
+      if (primaryConflict) delta -= 1;
+      if (!priorIdentity) delta += 1;
+      await adjustJobsCount(db, delta);
     },
   };
 }

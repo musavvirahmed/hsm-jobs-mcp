@@ -24,26 +24,6 @@ export function createSeededD1JobsIndex(): JobsIndex {
   for (const file of readdirSync(MIGRATIONS_DIR).filter((name) => name.endsWith(".sql")).sort()) {
     sqlite.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
   }
-  sqlite
-    .prepare(
-      `UPDATE index_meta SET
-         pass = ?,
-         register_size = ?,
-         register_as_of = ?,
-         last_successful_crawl = ?,
-         source_policy = ?,
-         register_join_note = ?
-       WHERE singleton = 1`,
-    )
-    .run(
-      FIXTURE_SNAPSHOT.index_scope.pass,
-      FIXTURE_SNAPSHOT.index_scope.register_size,
-      FIXTURE_SNAPSHOT.index_scope.register_as_of,
-      FIXTURE_SNAPSHOT.last_successful_crawl,
-      FIXTURE_SNAPSHOT.source_policy,
-      FIXTURE_SNAPSHOT.register_join_note,
-    );
-
   const insertOpening = sqlite.prepare(
     `INSERT INTO openings (
        identity, primary_url, careers_url, ats_url, title, location, jd_extract,
@@ -62,6 +42,33 @@ export function createSeededD1JobsIndex(): JobsIndex {
   for (const row of TERMINAL_OUTCOMES) {
     insertOutcome.run(row.kvk, row.outcome);
   }
+
+  // Bypass the writable plane: set snapshot fields + materialized counters together.
+  sqlite
+    .prepare(
+      `UPDATE index_meta SET
+         pass = ?,
+         register_size = ?,
+         register_as_of = ?,
+         last_successful_crawl = ?,
+         source_policy = ?,
+         register_join_note = ?,
+         jobs_count = ?,
+         sponsors_attempted = ?,
+         sponsors_with_openings = ?
+       WHERE singleton = 1`,
+    )
+    .run(
+      FIXTURE_SNAPSHOT.index_scope.pass,
+      FIXTURE_SNAPSHOT.index_scope.register_size,
+      FIXTURE_SNAPSHOT.index_scope.register_as_of,
+      FIXTURE_SNAPSHOT.last_successful_crawl,
+      FIXTURE_SNAPSHOT.source_policy,
+      FIXTURE_SNAPSHOT.register_join_note,
+      FIXTURE_SNAPSHOT.jobs_count,
+      FIXTURE_SNAPSHOT.index_scope.sponsors_attempted,
+      FIXTURE_SNAPSHOT.index_scope.sponsors_with_openings,
+    );
 
   return createD1JobsIndex(wrapSqlite(sqlite));
 }
