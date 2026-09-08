@@ -35,7 +35,7 @@ export function createJobsMcpServer(
     {
       title: "Search openings",
       description:
-        "Search the jobs index for Openings matching a title/free text query or KvK. Returns short cards without JD body, plus index scope. Prefer quoting result_note to the user; only mention a result cap when results_truncated is true.",
+        "Search the jobs index for Openings matching a title/free text query or KvK. Returns short cards without JD body, plus index scope. Surface each Opening's primary_url as a clickable link. Prefer quoting result_note for coverage, caps, and join status only; only mention a result cap when results_truncated is true.",
       inputSchema: searchJobsInputSchema,
       outputSchema: searchJobsOutputSchema,
       annotations: { readOnlyHint: true, idempotentHint: true },
@@ -48,7 +48,7 @@ export function createJobsMcpServer(
     {
       title: "Get one opening",
       description:
-        "Look up an Opening by its primary URL. Returns a structured miss when the URL is not in the jobs index.",
+        "Look up an Opening by its primary_url. Returns a structured miss when that URL is not in the jobs index. On a hit, surface primary_url as a clickable link.",
       inputSchema: getJobInputSchema,
       outputSchema: getJobOutputSchema,
       annotations: { readOnlyHint: true, idempotentHint: true },
