@@ -4,8 +4,6 @@ Ask your AI: *Which recognised sponsors in the Netherlands are hiring for a role
 
 This MCP server searches **real job listings** on company careers pages. It does **not** search LinkedIn or big job boards.
 
-For register-only questions — *Is Adyen a recognised sponsor?* — also add **[hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)**. You need **both** servers for a full picture.
-
 Live site: **[https://hsmjobs.musavvir.work](https://hsmjobs.musavvir.work)**
 
 Agent instructions for this repo: [`AGENTS.md`](AGENTS.md)
@@ -16,31 +14,35 @@ Agent instructions for this repo: [`AGENTS.md`](AGENTS.md)
 
 You do **not** need to clone this repo to try the live server.
 
-Add **two** servers — jobs here, and register lookup on hsm-mcp. No login in v1.
-
-**Cursor / any MCP client**
-
-```json
-{
-  "mcpServers": {
-    "hsm-jobs": { "url": "https://hsmjobs.musavvir.work/mcp" },
-    "ind-sponsors": { "url": "https://hsm.codealan.com/mcp" }
-  }
-}
-```
-
-In **Cursor Settings → MCP**, both servers should show green. `hsm-jobs` lists 3 tools. `ind-sponsors` lists 2 tools.
-
-**Cursor: use This Mac / desktop, not Cloud.** Green servers in **Settings → MCP** apply to local Agent chats. A chat set to **Cloud** often skips those servers and answers from the web. Before you test, open a **new** chat. Set the environment to **This Mac** (or desktop Agent). Cloud Agents need a separate MCP setup in the Cloud Agents dashboard.
+Add the **hsm-jobs** server. That is enough for Openings search.
 
 **Claude Code**
 
 ```bash
 claude mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
-claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 ```
 
-**claude.ai / Claude Desktop:** Settings → Connectors → Add custom connector → `https://hsmjobs.musavvir.work/mcp` (add hsm-mcp the same way).
+**GitHub Copilot CLI**
+
+```bash
+copilot mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
+```
+
+**Any MCP client** (Cursor, etc.)
+
+```json
+{
+  "mcpServers": {
+    "hsm-jobs": { "url": "https://hsmjobs.musavvir.work/mcp" }
+  }
+}
+```
+
+In **Cursor Settings → MCP**, `hsm-jobs` should show green and list 3 tools.
+
+**Cursor: use This Mac / desktop, not Cloud.** Green servers in **Settings → MCP** apply to local Agent chats. A chat set to **Cloud** often skips those servers and answers from the web. Before you test, open a **new** chat. Set the environment to **This Mac** (or desktop Agent). Cloud Agents need a separate MCP setup in the Cloud Agents dashboard.
+
+Note: if you have questions such as *Is Booking.com a recognised sponsor?* then you must use this different **[hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)** server.
 
 Then start a **new chat** and ask in plain language. You do **not** pick MCP tools from the `/` skills menu. The assistant calls them when it answers.
 
@@ -48,7 +50,6 @@ Then start a **new chat** and ask in plain language. You do **not** pick MCP too
 - *"Which recognised sponsors are hiring software engineers in Amsterdam?"*
 - *"What jobs do you have for KvK 60733144?"*
 - *"How fresh is the jobs index?"*
-- *"Is Adyen a recognised sponsor?"* → this hits **hsm-mcp**, not this server
 
 **You know MCP worked when:**
 
@@ -66,7 +67,7 @@ If the assistant only searches the web, say: *Use the hsm-jobs MCP tool `get_ind
 - Shows **honesty fields**: salary info, Dutch language requirement, sponsorship willingness. **Unknown** is a normal answer.
 - Shows **index scope** on every answer.
 
-Register-only questions belong on **hsm-mcp**, not here.
+Register-only questions (*Is Adyen a recognised sponsor?*) belong on **[hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)**, not here.
 
 ## The three tools
 
@@ -207,20 +208,28 @@ If it fails:
 
 ### Step 5 — Point your AI tool at localhost
 
-Change **only** the jobs URL to your machine. Keep hsm-mcp on the public register server.
+Change the jobs URL to your machine.
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http hsm-jobs http://127.0.0.1:8787/mcp
+```
+
+**GitHub Copilot CLI**
+
+```bash
+copilot mcp add --transport http hsm-jobs http://127.0.0.1:8787/mcp
+```
+
+**Any MCP client**
 
 ```json
 {
   "mcpServers": {
-    "hsm-jobs": { "url": "http://127.0.0.1:8787/mcp" },
-    "ind-sponsors": { "url": "https://hsm.codealan.com/mcp" }
+    "hsm-jobs": { "url": "http://127.0.0.1:8787/mcp" }
   }
 }
-```
-
-```bash
-claude mcp add --transport http hsm-jobs http://127.0.0.1:8787/mcp
-claude mcp add --transport http ind-sponsors https://hsm.codealan.com/mcp
 ```
 
 Use localhost here so you talk to **your** index. The public URL talks to the **shared** index. Both work. They are not the same database.

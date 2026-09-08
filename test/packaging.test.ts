@@ -8,6 +8,7 @@ import {
   CLIENT_KEY,
   EXAMPLE_ASKS,
   HSM_MCP_CLIENT_KEY,
+  HSM_MCP_GITHUB_URL,
   HSM_MCP_ORIGIN,
   IND_HSM_PERMIT_URL,
   READING_THE_ANSWERS_GIST,
@@ -42,7 +43,7 @@ test("GET / returns a human-readable discovery page", async () => {
   expect(html).toContain(SERVER_NAME);
 });
 
-test("GET / documents connect with hsm-jobs and required hsm-mcp pairing", async () => {
+test("GET / documents connect with hsm-jobs first and Copilot CLI", async () => {
   const response = await handleRequest(
     new Request(`${SHARED_RELEASE_ORIGIN}/`),
     emptyDeps(),
@@ -50,9 +51,18 @@ test("GET / documents connect with hsm-jobs and required hsm-mcp pairing", async
   const html = await response.text();
   expect(html).toContain(CLIENT_KEY);
   expect(html).toContain(`${SHARED_RELEASE_ORIGIN}/mcp`);
-  expect(html).toContain(HSM_MCP_CLIENT_KEY);
-  expect(html).toContain(HSM_MCP_ORIGIN);
   expect(html).toMatch(/streamable http/i);
+  expect(html).toContain("claude mcp add --transport http");
+  expect(html).toContain("copilot mcp add --transport http");
+  expect(html).toContain("Is Booking.com a recognised sponsor?");
+  expect(html).toContain(HSM_MCP_GITHUB_URL);
+  expect(html).toMatch(/must use this different[\s\S]*hsm-mcp[\s\S]*server/);
+  // First-try snippets are jobs-only — no second server in the JSON block
+  expect(html).not.toMatch(
+    /"mcpServers"[\s\S]*"ind-sponsors"[\s\S]*\}[\s\S]*\}/,
+  );
+  expect(html).not.toContain("claude.ai");
+  expect(html).not.toMatch(/No auth in v1/i);
 });
 
 test("GET / lists all v1 jobs tools and locked example asks", async () => {
@@ -66,17 +76,27 @@ test("GET / lists all v1 jobs tools and locked example asks", async () => {
   }
   for (const ask of EXAMPLE_ASKS) {
     expect(html).toContain(ask);
+    expect(html).toContain(escapeHtmlForAssert(`"${ask}"`));
   }
 });
 
-test("GET / includes reading-the-answers gist and freshness pointers", async () => {
+function escapeHtmlForAssert(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+test("GET / includes freshness pointers; reading gist stays off the discovery page", async () => {
   const response = await handleRequest(
     new Request(`${SHARED_RELEASE_ORIGIN}/`),
     emptyDeps(),
   );
   const html = await response.text();
+  expect(html).not.toContain('data-title="What the answers mean"');
   for (const line of READING_THE_ANSWERS_GIST) {
-    expect(html).toContain(line);
+    expect(html).not.toContain(line);
   }
   expect(html).toContain("/health");
   expect(html).toContain("get_index_status");
@@ -105,10 +125,15 @@ test("GET / uses TUI discovery chrome (variant B winner)", async () => {
   expect(html).toContain('class="tui-box"');
   expect(html).toContain('data-title="Connect"');
   expect(html).toContain('data-title="Then just ask"');
-  expect(html).toContain('data-title="What the answers mean"');
+  expect(html.indexOf('data-title="Connect"')).toBeLessThan(
+    html.indexOf('data-title="Then just ask"'),
+  );
   expect(html).toContain('data-title="How fresh is this?"');
   expect(html).toContain("tui-box--muted");
   expect(html).toContain("finite number of companies");
+  expect(html).toContain("remote MCP server");
+  expect(html).toContain("first - you have to be a");
+  expect(html).not.toMatch(/Goes without saying|not a job portal/i);
   expect(html).toContain(IND_HSM_PERMIT_URL);
 });
 
@@ -203,14 +228,17 @@ test("README is a human-first product README", () => {
   expect(readme).toContain(SERVER_NAME);
   expect(readme).toContain(SHARED_RELEASE_ORIGIN);
   expect(readme).toContain(CLIENT_KEY);
-  expect(readme).toContain(HSM_MCP_CLIENT_KEY);
+  expect(readme).toContain(HSM_MCP_GITHUB_URL);
+  expect(readme).toContain("Is Booking.com a recognised sponsor?");
+  expect(readme).toContain("copilot mcp add --transport http");
+  expect(readme).toMatch(/how to read the answers/i);
   expect(readme).not.toMatch(/plan,\s*don.?t do/i);
   expect(readme).not.toMatch(/do not implement/i);
   expect(readme).not.toMatch(/golden test/i);
   for (const tool of V1_JOBS_TOOLS) {
     expect(readme).toContain(tool.name);
   }
-  expect(readme).toMatch(/how to read the answers/i);
+  expect(readme.toLowerCase()).toMatch(/honesty|unknown/);
   expect(readme).toMatch(/try it on your computer/i);
   expect(readme).toMatch(/git clone/i);
   expect(readme).toMatch(/node --version/);
