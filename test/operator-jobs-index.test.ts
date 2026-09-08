@@ -143,10 +143,11 @@ test("createRemoteD1WritableJobsIndex uses Cloudflare REST when stub fetch is wi
   const fetchFn: typeof fetch = async (_input, init) => {
     const body = JSON.parse(String(init?.body ?? "{}")) as { sql: string; params: unknown[] };
     calls.push(body);
+    const results = /COUNT\s*\(/i.test(body.sql) ? [{ n: 0 }] : [];
     return new Response(
       JSON.stringify({
         success: true,
-        result: [{ success: true, results: [] }],
+        result: [{ success: true, results }],
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -161,9 +162,10 @@ test("createRemoteD1WritableJobsIndex uses Cloudflare REST when stub fetch is wi
     skipMigrations: true,
   });
   await index.setLastSuccessfulCrawl("2026-08-29T00:00:00.000Z");
-  expect(calls).toHaveLength(1);
   expect(calls[0]?.sql).toMatch(/UPDATE index_meta SET last_successful_crawl/i);
   expect(calls[0]?.params).toEqual(["2026-08-29T00:00:00.000Z"]);
+  expect(calls.some((call) => /COUNT\s*\(/i.test(call.sql))).toBe(true);
+  expect(calls.some((call) => /SET jobs_count/i.test(call.sql))).toBe(true);
 });
 
 test("listMissingTerminalOutcomeKvks loads recorded KvKs in one query", async () => {

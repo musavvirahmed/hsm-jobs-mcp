@@ -24,7 +24,7 @@ Copy [`.env.example`](../.env.example) to `.env`. Cloudflare bootstrap keys are 
 | `CRAWL_MAX_ATTEMPTS` | (all missing) | Optional cap on missing KvKs per `crawl:full-pass` |
 | `CRAWL_REFRESH_MAX_SEEDS` | `400` | Cap on board seeds per Opening refresh. `0` = no cap. Live boards first, then least-recently refreshed |
 | `CRAWL_BOARD_REFRESH_ONLY` | unset | When `1`/`true`, `npm run crawl` skips website/ladder (production opening-refresh job) |
-| `REMOTE_D1_SKIP_MIGRATIONS` | unset | When `1`/`true`, skip `wrangler d1 migrations apply --remote` on each remote-d1 crawl open (schema already applied) |
+| `REMOTE_D1_SKIP_MIGRATIONS` | unset | When `1`/`true`, skip `wrangler d1 migrations apply --remote` on each remote-d1 crawl open (schema already applied). Re-apply once after any new `migrations/*.sql` lands before setting skip again. |
 | `HSM_MCP_ORIGIN` | `https://hsm.codealan.com` | Live Work-register source for production crawl |
 
 Operator loop reuses `.wrangler/state` unless you override `JOBS_INDEX_LOCAL_D1_STATE`. CI uses an **ephemeral** state dir (temp under the OS tmp) and tears it down after verify.
