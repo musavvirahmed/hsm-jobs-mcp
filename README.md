@@ -4,8 +4,6 @@ What if you could simply ask your AI (model of choice) which [Dutch recognised s
 
 ![Screenshot of GitHub Copilot calling hsm-jobs](docs/readme/hsm-jobs-mcp-sierra-site-thumbnail-v1.png)
 
----
-
 ## Step 1 of 2: Connect to the MCP server
 
 **If you use Claude Code:**
@@ -32,16 +30,12 @@ copilot mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
 
 Note: if you have questions such as "Is Booking.com a recognised sponsor?" then you must use this other [hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp) server.
 
----
-
 ## Step 2 of 2: Then just ask
 
 - "Which recognised sponsors are hiring product designers?"
 - "Which recognised sponsors are hiring software engineers in Amsterdam?"
 - "What Openings do you have for KvK 60733144?"
 - "How fresh is the jobs index?"
-
----
 
 ## What does 'how fresh' mean?
 
@@ -55,8 +49,6 @@ Maintenance is roughly **daily**: re-check a capped slice of known boards (board
 
 Ask `get_index_status` for the current last successful crawl time, stale flag, jobs count, and index scope.
 
----
-
 ## Besides 'just asking', what else can you do?
 
 
@@ -66,14 +58,13 @@ Ask `get_index_status` for the current last successful crawl time, stale flag, j
 | `get_job`                  | One Opening by its primary careers or ATS URL; returns structured miss when absent.   |
 | `get_index_status`         | Jobs-index health, crawl freshness, and index scope (partial vs full careers pass).   |
 
-
 ---
 
-## Architecture
+## Learn about the architecture
 
 ```mermaid
 flowchart LR
-    client["AI client<br/>(Claude, Cursor, any MCP client)"]
+    client["AI client<br/>(Claude, Cursor, Copilot, or any MCP client)"]
     hsmMcp["hsm-mcp<br/>(register lookup)"]
     careers["Employer careers / ATS<br/>(public feeds + HTML)"]
 
@@ -105,9 +96,7 @@ flowchart LR
 
 More paths, env, and crawl ops: [docs/README-developers.md](docs/README-developers.md). Stack lock: [ADR 0009](docs/adr/0009-v1-stack-and-hosting.md).
 
----
-
-## For developers
+## More info for developers
 
 Agent instructions for this repo: [`AGENTS.md`](AGENTS.md)
 
