@@ -40,10 +40,22 @@ export const EXAMPLE_JOB_ASKS = [
  * Plain text for README / assertions (URL may appear beside or as markdown link).
  */
 export const REGISTER_ONLY_NOTE =
-  'Note: if you have questions such as "Is Booking.com a recognised sponsor?" then you must use this different hsm-mcp server.';
+  'Note: if you have questions such as "Is Booking.com a recognised sponsor?" then you must use this other hsm-mcp server.';
 
 /** Locked v1 example asks shown in “Then just ask” — job-shaped only. */
 export const EXAMPLE_ASKS = [...EXAMPLE_JOB_ASKS] as const;
+
+/**
+ * README / discovery “What does 'how fresh' mean?” body.
+ * Plain text paragraphs; discovery page adds the same bold spots as the README.
+ */
+export const HOW_FRESH_MEANING = [
+  "The IND Work register lists ~13,000 recognised sponsor companies. This server does not scrape those careers pages real-time when you ask. It answers from a shared jobs index that a crawler updates in the background.",
+  "That jobs index must stay current because - the register can change (sponsors can be added or removed), employers post and remove openings on their own website or 3rd-party ATS pages, and job openings in the jobs index can outlive the live posting until the crawler re-checks that board.",
+  "After a full careers pass, every current register sponsor has been checked at least once. Only a few hundred typically have Openings in the jobs index at once; the rest were checked and had none (or no usable public board).",
+  "Maintenance is roughly daily: re-check a capped slice of known boards (boards with openings first), and attempt any new register sponsors that still lack an outcome. Not every board is refreshed every day, so some postings can stay in the jobs index for several days after they disappear on the employer site.",
+  "Ask get_index_status for the current last successful crawl time, stale flag, jobs count, and index scope.",
+] as const;
 
 /** Honesty gist for the product README (not shown on GET `/`). */
 export const READING_THE_ANSWERS_GIST = [

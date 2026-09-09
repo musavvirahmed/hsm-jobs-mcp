@@ -2,6 +2,7 @@ import { FAVICON_MIME, FAVICON_PATH } from "./favicon";
 import {
   CLIENT_KEY,
   EXAMPLE_JOB_ASKS,
+  HOW_FRESH_MEANING,
   HSM_MCP_GITHUB_URL,
   IND_HSM_PERMIT_URL,
   IND_PUBLIC_REGISTER_WORK_URL,
@@ -139,6 +140,27 @@ function registerOnlyFootnoteHtml(): string {
   return `<p class="muted">${linked}</p>`;
 }
 
+/** Bold the same spots as README markdown for the how-fresh body. */
+function howFreshParagraphHtml(text: string): string {
+  let html = escapeHtml(text);
+  html = html.replace("~13,000", "<strong>~13,000</strong>");
+  html = html.replace(" does not scrape ", " does <strong>not</strong> scrape ");
+  html = html.replace(
+    "a shared jobs index that",
+    "a shared <strong>jobs index</strong> that",
+  );
+  html = html.replace("roughly daily:", "roughly <strong>daily</strong>:");
+  html = html.replace(
+    "Ask get_index_status for",
+    "Ask <code>get_index_status</code> for",
+  );
+  return `<p>${html}</p>`;
+}
+
+function howFreshInnerHtml(): string {
+  return HOW_FRESH_MEANING.map(howFreshParagraphHtml).join("\n");
+}
+
 export function renderDiscoveryPage(origin: string): string {
   const mcpUrl = `${origin}/mcp`;
   const healthUrl = `${origin}/health`;
@@ -157,11 +179,11 @@ export function renderDiscoveryPage(origin: string): string {
     </p>`;
 
   const connectInner = `
-    <p><strong>Claude Code</strong></p>
+    <p><strong>If you use Claude Code:</strong></p>
     <pre><code>claude mcp add --transport http ${escapeHtml(CLIENT_KEY)} ${escapeHtml(mcpUrl)}</code></pre>
-    <p><strong>GitHub Copilot CLI</strong></p>
+    <p><strong>If you use GitHub Copilot CLI:</strong></p>
     <pre><code>copilot mcp add --transport http ${escapeHtml(CLIENT_KEY)} ${escapeHtml(mcpUrl)}</code></pre>
-    <p><strong>Any MCP client</strong> (Cursor, etc.)</p>
+    <p><strong>Or if you use any other AI-IDE, try applying this setting:</strong></p>
     <pre><code>{
   "mcpServers": {
     "${escapeHtml(CLIENT_KEY)}": { "url": "${escapeHtml(mcpUrl)}" }
@@ -175,13 +197,6 @@ export function renderDiscoveryPage(origin: string): string {
       <li><code>${escapeHtml(PUBLIC_PATHS[1])}</code> - Streamable HTTP MCP (<code>serverInfo.name</code>: <code>${escapeHtml(SERVER_NAME)}</code>)</li>
       <li><code>${escapeHtml(PUBLIC_PATHS[2])}</code> - coarse operator health (<a href="${escapeHtml(healthUrl)}">${escapeHtml(healthUrl)}</a>)</li>
     </ul>`;
-
-  const freshnessInner = `
-    <p>
-      Coarse deploy health: <a href="${escapeHtml(healthUrl)}"><code>/health</code></a>.
-      Rich index scope, crawl timestamps, and register-join upstream status: ask via
-      <code>get_index_status</code> in your MCP client.
-    </p>`;
 
   const footerInner = `
     <p>
@@ -205,10 +220,10 @@ export function renderDiscoveryPage(origin: string): string {
       <h1>${escapeHtml(SERVER_NAME)}</h1>
       ${lede}
     </header>
-    ${tuiBox("Connect", connectInner)}
-    ${tuiBox("Then just ask", `<ul>${quotedListItems(EXAMPLE_JOB_ASKS)}</ul>`)}
-    ${tuiBox("How fresh is this?", freshnessInner)}
-    ${tuiBox("Tools", `<ul>${toolList()}</ul>`, true)}
+    ${tuiBox("Step 1 of 2: Connect to the MCP server", connectInner)}
+    ${tuiBox("Step 2 of 2: Then just ask", `<ul>${quotedListItems(EXAMPLE_JOB_ASKS)}</ul>`)}
+    ${tuiBox("What does 'how fresh' mean?", howFreshInnerHtml())}
+    ${tuiBox("Besides 'just asking', what else can you do?", `<ul>${toolList()}</ul>`, true)}
     ${tuiBox("Public paths", pathsInner, true)}
     <div class="tui-footer">${footerInner}</div>
   </div>
