@@ -1,34 +1,26 @@
-# hsm-jobs-mcp
+# hsm-jobs
 
-Ask your AI: *Which recognised sponsors in the Netherlands are hiring for a role I want?*
+What if you could simply ask your AI (model of choice) which [Dutch recognised sponsors](https://ind.nl/en/public-register-recognised-sponsors/public-register-work) are hiring? This remote MCP server will do exactly that. It will find you job openings by those recognised sponsors, and present them to you in an easy-to-read way.
 
-This MCP server searches **real job listings** on company careers pages. It does **not** search LinkedIn or big job boards.
-
-Live site: **[https://hsmjobs.musavvir.work](https://hsmjobs.musavvir.work)**
-
-Agent instructions for this repo: [`AGENTS.md`](AGENTS.md)
+![Screenshot of GitHub Copilot calling hsm-jobs](docs/readme/hsm-jobs-mcp-sierra-site-thumbnail-v1.png)
 
 ---
 
-## Connect (start here)
+## Step 1 of 2: Connect to the MCP server
 
-You do **not** need to clone this repo to try the live server.
-
-Add the **hsm-jobs** server. That is enough for Openings search.
-
-**Claude Code**
+**If you use Claude Code:**
 
 ```bash
 claude mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
 ```
 
-**GitHub Copilot CLI**
+**If you use GitHub Copilot CLI:**
 
 ```bash
 copilot mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
 ```
 
-**Any MCP client** (Cursor, etc.)
+**Or if you use any other AI-IDE, try applying this setting:**
 
 ```json
 {
@@ -38,55 +30,42 @@ copilot mcp add --transport http hsm-jobs https://hsmjobs.musavvir.work/mcp
 }
 ```
 
-In **Cursor Settings → MCP**, `hsm-jobs` should show green and list 3 tools.
-
-**Cursor: use This Mac / desktop, not Cloud.** Green servers in **Settings → MCP** apply to local Agent chats. A chat set to **Cloud** often skips those servers and answers from the web. Before you test, open a **new** chat. Set the environment to **This Mac** (or desktop Agent). Cloud Agents need a separate MCP setup in the Cloud Agents dashboard.
-
-Note: if you have questions such as *Is Booking.com a recognised sponsor?* then you must use this different **[hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)** server.
-
-Then start a **new chat** and ask in plain language. You do **not** pick MCP tools from the `/` skills menu. The assistant calls them when it answers.
-
-- *"Which recognised sponsors are hiring product designers?"*
-- *"Which recognised sponsors are hiring software engineers in Amsterdam?"*
-- *"What jobs do you have for KvK 60733144?"*
-- *"How fresh is the jobs index?"*
-
-**You know MCP worked when:**
-
-- The reply cites **last successful crawl**, **jobs count**, or **index scope** from the index — not a guess from random websites.
-- Cursor shows an MCP **tool** call (for example `get_index_status` or `search_jobs`), or a status like **Explored … 1 tool**.
-
-If the assistant only searches the web, say: *Use the hsm-jobs MCP tool `get_index_status`.*
+Note: if you have questions such as "Is Booking.com a recognised sponsor?" then you must use this other [hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp) server.
 
 ---
 
-## What it does
+## Step 2 of 2: Then just ask
 
-- Finds **Openings** — live jobs on employer careers and ATS pages.
-- Shows **register join** on each job: company name, KvK number, and how strong the match is. This is **not** a promise that the job will sponsor your visa.
-- Shows **honesty fields**: salary info, Dutch language requirement, sponsorship willingness. **Unknown** is a normal answer.
-- Shows **index scope** on every answer.
+- "Which recognised sponsors are hiring product designers?"
+- "Which recognised sponsors are hiring software engineers in Amsterdam?"
+- "What Openings do you have for KvK 60733144?"
+- "How fresh is the jobs index?"
 
-Register-only questions (*Is Adyen a recognised sponsor?*) belong on **[hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp)**, not here.
+---
 
-## The three tools
+## What does 'how fresh' mean?
 
-| Tool | What it does |
-| ---- | ------------ |
-| `search_jobs` | Search jobs by title or company (KvK number). Optional location. Returns up to 20 results. |
-| `get_job` | Get full details for one job URL. |
-| `get_index_status` | Check how fresh the job index is and how complete coverage is. |
+The IND Work register lists  ~**13,000** recognised sponsor companies. This server does **not** scrape those careers pages real-time when you ask. It answers from a shared **jobs index** that a crawler updates in the background.
 
-## How to read the answers
+That jobs index must stay current because - the register can change (sponsors can be added or removed), employers post and remove openings on their own website or 3rd-party ATS pages, and job openings in the jobs index can outlive the live posting until the crawler re-checks that board.
 
-- **Honesty fields are separate signals.** Salary, Dutch requirement, and sponsorship willingness are independent. Unknown is common and valid.
-- **Register join is a match score, not a yes/no.** A company on the sponsor register does not mean this specific job will sponsor you.
-- **This tool does not check the IND salary minimum.** You or your agent must do that.
-- **Empty results mean no matching openings in the index right now.** The shared index has finished a full careers pass over the current Work register.
-- **Each search returns up to 20 hits.** When more matches exist, the answer says so and invites a tighter title or location. When every match fits in the page, it does not talk about a cap.
-- **Register data can be stale.** If hsm-mcp is slow or down, job cards may show older register info. The tool tells you instead of guessing.
+After a full careers pass, every current register sponsor has been checked at least once. Only a few hundred typically have Openings in the jobs index at once; the rest were checked and had none (or no usable public board).
 
-Check employer careers pages and the [official IND register](https://ind.nl/en/public-register-recognised-sponsors/public-register-work) before you act on anything important.
+Maintenance is roughly **daily**: re-check a capped slice of known boards (boards with openings first), and attempt any new register sponsors that still lack an outcome. Not every board is refreshed every day, so some postings can stay in the jobs index for several days after they disappear on the employer site.
+
+Ask `get_index_status` for the current last successful crawl time, stale flag, jobs count, and index scope.
+
+---
+
+## Besides 'just asking', what else can you do?
+
+
+| Built-in tool you can call | What it does                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `search_jobs`              | Openings at recognised sponsors by title/free text or 8-digit KvK; optional location. |
+| `get_job`                  | One Opening by its primary careers or ATS URL; returns structured miss when absent.   |
+| `get_index_status`         | Jobs-index health, crawl freshness, and index scope (partial vs full careers pass).   |
+
 
 ---
 
@@ -114,151 +93,24 @@ flowchart LR
     gh -- "fetch feeds/HTML" --> careers
 ```
 
-| Path | What happens |
-| ---- | ------------ |
-| `GET /` | Human discovery page (connect, tools, example asks) |
-| `/mcp` | Streamable HTTP → `search_jobs` · `get_job` · `get_index_status` |
-| `/health` | Coarse operator health |
+
+
+
+| Path      | What happens                                                                                          |
+| --------- | ----------------------------------------------------------------------------------------------------- |
+| `/`       | this discovery page                                                                                   |
+| `/mcp`    | Streamable HTTP MCP (`serverInfo.name`: `hsm-jobs-mcp`)                                               |
+| `/health` | coarse operator health ([https://hsmjobs.musavvir.work/health](https://hsmjobs.musavvir.work/health)) |
+
 
 More paths, env, and crawl ops: [docs/README-developers.md](docs/README-developers.md). Stack lock: [ADR 0009](docs/adr/0009-v1-stack-and-hosting.md).
 
 ---
 
-## Try it on your computer
-
-Use this section only if you want a **local** copy of the index (to develop, or to try the server without the public URL).
-
-The public URL above already serves the shared index. Local `http://127.0.0.1:8787/mcp` is a **different** index on your machine. Point your AI tool at **one** jobs URL at a time.
-
-You need Node.js **20 or newer** (tests use Node 24) and an MCP client (Cursor, Claude Code, or Claude Desktop).
-
-```bash
-node --version
-npm --version
-```
-
-If you see `command not found`, install Node.js from [nodejs.org](https://nodejs.org/) (LTS), then run the commands again.
-
-### Get the code
-
-**Option A — clone (recommended)**
-
-```bash
-git clone https://github.com/musavvirahmed/hsm-jobs-mcp.git
-cd hsm-jobs-mcp
-```
-
-**Option B — download without git**
-
-1. Open [github.com/musavvirahmed/hsm-jobs-mcp](https://github.com/musavvirahmed/hsm-jobs-mcp).
-2. Click **Code** → **Download ZIP**.
-3. Unzip the file and open a terminal in the unzipped folder.
-
-### Step 1 — Install dependencies
-
-Open a terminal in the project folder (the folder that contains this README).
-
-```bash
-npm ci
-```
-
-This usually takes about **one minute**.
-
-You will use **two terminals**. Step 2 finishes in the first. Step 3 starts the server in a second terminal and leaves it running. Step 4 uses the first terminal again.
-
-### Step 2 — Download job listings
-
-In the **same** terminal as step 1, run a **fixture** crawl first (seconds to about **one minute**):
-
-```bash
-npm run crawl:smoke
-```
-
-You will see `[crawl]` status lines while it runs. Wait for the JSON report at the end. There is no progress bar.
-
-`npm run crawl` (without `:smoke`) loads the live register. That run can take **many minutes to hours**. Prefer the shared MCP at `https://hsmjobs.musavvir.work/mcp`. Or keep using `npm run crawl:smoke`. Use the live crawl only when you need a live local index.
-
-### Step 3 — Start the local server
-
-Open a **<u>new</u>** terminal window or tab in the **<u>same</u>** project folder. Run:
-
-```bash
-npm run dev
-```
-
-Leave this terminal open. The server uses [http://127.0.0.1:8787](http://127.0.0.1:8787) by default. It will keep running until you stop it.
-
-Ready usually takes **under 30 seconds**. The MCP URL is `http://127.0.0.1:8787/mcp`.
-
-### Step 4 — Check that it works
-
-In a terminal that is **not** running `npm run dev` — the one you used for steps 1 and 2 is fine.
-
-```bash
-npm run private-release:verify
-```
-
-If you see `ready at http://127.0.0.1:8787/mcp`, you are good. This check usually takes **a few seconds**.
-
-If it fails:
-
-1. Make sure step 2 finished without errors.
-2. Make sure step 3 is still running in the other terminal.
-3. Run step 4 again in a terminal that is not running the server.
-
-### Step 5 — Point your AI tool at localhost
-
-Change the jobs URL to your machine.
-
-**Claude Code**
-
-```bash
-claude mcp add --transport http hsm-jobs http://127.0.0.1:8787/mcp
-```
-
-**GitHub Copilot CLI**
-
-```bash
-copilot mcp add --transport http hsm-jobs http://127.0.0.1:8787/mcp
-```
-
-**Any MCP client**
-
-```json
-{
-  "mcpServers": {
-    "hsm-jobs": { "url": "http://127.0.0.1:8787/mcp" }
-  }
-}
-```
-
-Use localhost here so you talk to **your** index. The public URL talks to the **shared** index. Both work. They are not the same database.
-
-If you skip steps 1–4 and connect to localhost anyway, Cursor will show an error: nothing is listening on port 8787. Connect to `https://hsmjobs.musavvir.work/mcp` instead, or finish steps 1–4 first.
-
-### Step 6 — Ask from this folder
-
-1. In Cursor: **File → Open Folder…**
-2. Choose the `hsm-jobs-mcp` folder (the one that contains this README).
-3. Start a **new chat** in that window.
-
-If you chat from a different folder, Cursor may search local files instead of calling `hsm-jobs`.
-
-Ask: *How fresh is the jobs index?* You know the **local** server worked when the `npm run dev` terminal prints `POST /mcp 200` (or `202`).
-
-### Optional settings
-
-Copy [`.env.example`](.env.example) to `.env` if you want to change defaults. Most people do not need this for a first try.
-
-| Setting | Default | When to change it |
-| ------- | ------- | ----------------- |
-| `JOBS_INDEX_TARGET` | `local-d1` | Rarely — keeps job data on your machine |
-| `PRIVATE_RELEASE_ORIGIN` | `http://127.0.0.1:8787` | If `npm run dev` uses a different port |
-
----
-
 ## For developers
+
+Agent instructions for this repo: [`AGENTS.md`](AGENTS.md)
 
 Operator env contract, crawl schedule, HTTP paths, and CI: [docs/README-developers.md](docs/README-developers.md).
 
-Unofficial project. Job listings © respective employers. Register data © IND via hsm-mcp.
+Unofficial project. Openings come from employer careers/ATS pages; register facts come from [IND](https://ind.nl/en/public-register-recognised-sponsors/public-register-work) via [hsm-mcp](https://github.com/CodeAlanDebug/hsm-mcp). Verify against primary sources before acting.
