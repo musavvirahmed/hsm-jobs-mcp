@@ -98,7 +98,7 @@ Two GitHub workflows:
 
 Production has **no `pull_request` trigger**. Cron is a no-op until that repo variable is `true`. Forks never receive production secrets.
 
-After **shared release**, `opening-refresh` stays inside 90 minutes because it caps the seed queue and does not re-probe careers URLs for postings already in the index. Catch-up remains a separate job. While the index is still `partial`, judge missing-KvK progress from **`catchup-report.json`**.
+After **shared release**, `opening-refresh` caps the seed queue and does not re-probe careers URLs for postings already in the index; the job budget is **150 minutes** (was 90; some capped runs still sat near that wall). Catch-up remains a separate job. While the index is still `partial`, judge missing-KvK progress from **`catchup-report.json`**.
 
 Crawl steps redirect JSON to artifacts (`npm run --silent … > report.json`), so the Actions log looks quiet until the step ends. Stderr progress lines (`[crawl] board refresh N/M`) still show in the job log. Download reports from the run **Summary → Artifacts**, or:
 
@@ -164,7 +164,7 @@ From `catchup-report.json` (and `refresh-report.json` when present):
 
 | Check | Fail |
 | ----- | ---- |
-| Catch-up job succeeded (opening-refresh may cancel at 90m while still `partial`) | Fix secrets/logs; do not enable schedule |
+| Catch-up job succeeded (opening-refresh may cancel at 150m while still `partial`) | Fix secrets/logs; do not enable schedule |
 | `jobs_index_target` is `remote-d1` | Re-check secrets |
 | `attempted` ≈ cap (or remaining missing) | Inspect logs |
 | `missing_terminal_outcomes_after` ≈ `missing_terminal_outcomes_before - attempted` | Egress or D1 quota → step 8; do not enable schedule |
@@ -185,7 +185,7 @@ Until then, only `workflow_dispatch` runs production. Do not enable the schedule
 
 **7. Burst catch-up (optional)**
 
-After a large IND register delta: `gh workflow run crawl-production.yml -f catch_up_max_attempts=500`. Do not change the scheduled default to 500 until a 200 (and preferably a 500) dispatch finished inside timeouts. Expect each Actions run to spend up to ~90m on `opening-refresh` before catch-up starts while the index is still `partial`.
+After a large IND register delta: `gh workflow run crawl-production.yml -f catch_up_max_attempts=500`. Do not change the scheduled default to 500 until a 200 (and preferably a 500) dispatch finished inside timeouts. Expect each Actions run to spend up to ~150m on `opening-refresh` before catch-up starts while the index is still `partial`.
 
 **8. Pause / local burst (first full pass)**
 
