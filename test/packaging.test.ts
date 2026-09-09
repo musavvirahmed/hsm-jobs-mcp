@@ -56,7 +56,10 @@ test("GET / documents connect with hsm-jobs first and Copilot CLI", async () => 
   expect(html).toContain("copilot mcp add --transport http");
   expect(html).toContain("Is Booking.com a recognised sponsor?");
   expect(html).toContain(HSM_MCP_GITHUB_URL);
-  expect(html).toMatch(/must use this different[\s\S]*hsm-mcp[\s\S]*server/);
+  expect(html).toMatch(/must use this other[\s\S]*hsm-mcp[\s\S]*server/);
+  expect(html).toContain("If you use Claude Code:");
+  expect(html).toContain("If you use GitHub Copilot CLI:");
+  expect(html).toContain("Or if you use any other AI-IDE, try applying this setting:");
   // First-try snippets are jobs-only — no second server in the JSON block
   expect(html).not.toMatch(
     /"mcpServers"[\s\S]*"ind-sponsors"[\s\S]*\}[\s\S]*\}/,
@@ -100,6 +103,8 @@ test("GET / includes freshness pointers; reading gist stays off the discovery pa
   }
   expect(html).toContain("/health");
   expect(html).toContain("get_index_status");
+  expect(html).toContain("~13,000");
+  expect(html).toContain("jobs index");
 });
 
 test("GET / is connect/discovery only — no portal surfaces", async () => {
@@ -123,12 +128,17 @@ test("GET / uses TUI discovery chrome (variant B winner)", async () => {
   const html = await response.text();
   expect(html).toContain('class="tui-header"');
   expect(html).toContain('class="tui-box"');
-  expect(html).toContain('data-title="Connect"');
-  expect(html).toContain('data-title="Then just ask"');
-  expect(html.indexOf('data-title="Connect"')).toBeLessThan(
-    html.indexOf('data-title="Then just ask"'),
+  expect(html).toContain(
+    'data-title="Step 1 of 2: Connect to the MCP server"',
   );
-  expect(html).toContain('data-title="How fresh is this?"');
+  expect(html).toContain('data-title="Step 2 of 2: Then just ask"');
+  expect(html.indexOf('data-title="Step 1 of 2: Connect to the MCP server"')).toBeLessThan(
+    html.indexOf('data-title="Step 2 of 2: Then just ask"'),
+  );
+  expect(html).toContain("data-title=\"What does 'how fresh' mean?\"");
+  expect(html).toContain(
+    "data-title=\"Besides 'just asking', what else can you do?\"",
+  );
   expect(html).toContain("tui-box--muted");
   expect(html).toContain("finite number of companies");
   expect(html).toContain("remote MCP server");
