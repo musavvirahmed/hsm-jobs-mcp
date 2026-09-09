@@ -231,22 +231,21 @@ test("README is a human-first product README", () => {
   expect(readme).toContain(HSM_MCP_GITHUB_URL);
   expect(readme).toContain("Is Booking.com a recognised sponsor?");
   expect(readme).toContain("copilot mcp add --transport http");
-  expect(readme).toMatch(/how to read the answers/i);
+  expect(readme).toMatch(/what does 'how fresh' mean/i);
+  expect(readme).toMatch(/```mermaid/);
   expect(readme).not.toMatch(/plan,\s*don.?t do/i);
   expect(readme).not.toMatch(/do not implement/i);
   expect(readme).not.toMatch(/golden test/i);
   for (const tool of V1_JOBS_TOOLS) {
     expect(readme).toContain(tool.name);
+    expect(readme).toContain(tool.description);
   }
-  expect(readme.toLowerCase()).toMatch(/honesty|unknown/);
-  expect(readme).toMatch(/try it on your computer/i);
-  expect(readme).toMatch(/git clone/i);
-  expect(readme).toMatch(/node --version/);
-  expect(readme).toMatch(/npm run crawl/);
-  expect(readme).toMatch(/private-release:verify/);
-  expect(readme).toContain("http://127.0.0.1:8787/mcp");
+  for (const ask of EXAMPLE_ASKS) {
+    expect(readme).toContain(ask);
+  }
+  expect(readme).toContain("docs/readme/hsm-jobs-mcp-sierra-site-thumbnail-v1.png");
   expect(readme).toContain("docs/README-developers.md");
-  expect(readme).toMatch(/open folder/i);
+  expect(readme).toContain("AGENTS.md");
   expect(readme).toMatch(/get_index_status/);
 });
 
@@ -301,12 +300,12 @@ test("developer README and workflows document gated production crawl", () => {
   expect(developerReadme).toMatch(/local burst|CRAWL_MAX_ATTEMPTS=500/);
 });
 
-test("README prefers crawl:smoke and warns that live crawl can take hours", () => {
-  expect(readme).toContain("npm run crawl:smoke");
-  expect(readme).toMatch(/\[crawl\]/);
-  expect(readme).toMatch(/many minutes to hours/);
+test("product README points at the shared MCP; local crawl ops stay in developer README", () => {
   expect(readme).toMatch(/hsmjobs\.musavvir\.work\/mcp/);
-  expect(readme).toMatch(/Prefer the shared MCP|prefer.*shared MCP/i);
+  expect(readme).not.toMatch(/try it on your computer/i);
+  expect(developerReadme).toContain("npm run crawl:smoke");
+  expect(developerReadme).toMatch(/private-release:verify/);
+  expect(developerReadme).toContain("http://127.0.0.1:8787");
 });
 
 test("crawl CLI always process.exit after success or failure so Playwright cannot hang the batch", () => {
