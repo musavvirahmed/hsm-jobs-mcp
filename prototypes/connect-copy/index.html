@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE — Discovery Connect copy</title>
+  <style>
+    .proto-banner {
+      font: 13px/1.4 system-ui, sans-serif;
+      border: 1px dashed #b45309;
+      background: #fffbeb;
+      color: #92400e;
+      padding: 0.55rem 0.75rem;
+      margin: 0 auto 1rem;
+      max-width: 46rem;
+    }
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      background: #1c1917;
+      color: #fafaf9;
+      border-radius: 999px;
+      padding: 0.45rem 0.55rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      z-index: 100;
+      font: 13px system-ui, sans-serif;
+    }
+    .switcher button {
+      appearance: none;
+      border: 0;
+      background: #44403c;
+      color: inherit;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .switcher button:hover { background: #57534e; }
+    .switcher .label { min-width: 18rem; text-align: center; }
+
+    :root {
+      --bg: #000000;
+      --fg: #e6e6e6;
+      --muted: #6c6c6c;
+      --cyan: #00d7d7;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 13px/1.6 var(--mono);
+      padding: 2rem 1.25rem 5rem;
+    }
+    .page {
+      max-width: 46rem;
+      margin: 0 auto;
+    }
+    .tui-header {
+      border: 4px double var(--cyan);
+      text-align: center;
+      padding: 8px 16px;
+      margin-bottom: 16px;
+    }
+    .tui-header h1 {
+      font-size: 1.35rem;
+      font-weight: 400;
+      margin: 0;
+      color: var(--cyan);
+    }
+    .tui-header .lede {
+      margin: 8px 0 0;
+      text-align: left;
+      color: var(--fg);
+      font-size: 13px;
+    }
+    .tui-header .lede + .lede {
+      margin-top: 1.5em;
+    }
+    .tui-box {
+      border: 1px solid var(--cyan);
+      position: relative;
+      padding: 16px 12px 10px;
+      margin-bottom: 12px;
+    }
+    .tui-box::before {
+      content: attr(data-title);
+      position: absolute;
+      top: 0;
+      left: 10px;
+      transform: translateY(-50%);
+      background: var(--bg);
+      color: var(--cyan);
+      padding: 0 6px;
+    }
+    .tui-box--muted {
+      border-color: var(--muted);
+      color: var(--muted);
+    }
+    .tui-box--muted::before {
+      color: var(--muted);
+    }
+    .tui-box--muted a { color: var(--muted); }
+    .tui-box--muted code, .tui-box--muted pre {
+      background: rgba(127, 127, 127, 0.1);
+    }
+    p { margin: 0 0 0.75rem; }
+    ul { margin: 0; padding-left: 1.2rem; }
+    li { margin-bottom: 0.35rem; }
+    a { color: var(--cyan); }
+    code, pre {
+      font-family: var(--mono);
+      background: rgba(127, 127, 127, 0.14);
+      border-radius: 4px;
+    }
+    code { padding: 0.1em 0.35em; }
+    pre {
+      padding: 0.8em 1em;
+      overflow-x: auto;
+      margin: 0 0 0.75rem;
+    }
+    pre code { background: none; padding: 0; }
+    .muted { color: var(--muted); font-size: 0.92em; }
+    .tui-footer {
+      color: var(--muted);
+      margin-top: 1rem;
+      font-size: 0.92em;
+    }
+  </style>
+</head>
+<body>
+  <!--
+    PROTOTYPE (throwaway): Discovery Connect copy
+    Winner: A (muted hsm-mcp footnote) — folded into production GET /.
+  -->
+  <div id="root"></div>
+
+  <div class="switcher" role="navigation" aria-label="Prototype variant switcher">
+    <button type="button" id="prev" aria-label="Previous variant">←</button>
+    <div class="label" id="switch-label"></div>
+    <button type="button" id="next" aria-label="Next variant">→</button>
+  </div>
+
+  <script>
+    const ORIGIN = "https://hsmjobs.musavvir.work";
+    const CLIENT_KEY = "hsm-jobs";
+    const SERVER_NAME = "hsm-jobs-mcp";
+    const HSM_MCP_GITHUB_URL = "https://github.com/CodeAlanDebug/hsm-mcp";
+    const IND_HSM_PERMIT_URL =
+      "https://ind.nl/en/residence-permits/work/highly-skilled-migrant";
+    const IND_PUBLIC_REGISTER_WORK_URL =
+      "https://ind.nl/en/public-register-recognised-sponsors/public-register-work";
+
+    const V1_JOBS_TOOLS = [
+      { name: "search_jobs", description: "Openings at recognised sponsors by title/free text or 8-digit KvK; optional location." },
+      { name: "get_job", description: "One Opening by its primary careers or ATS URL; returns structured miss when absent." },
+      { name: "get_index_status", description: "Jobs-index health, crawl freshness, and index scope (partial vs full careers pass)." },
+    ];
+
+    const EXAMPLE_JOB_ASKS = [
+      "Which recognised sponsors are hiring product designers?",
+      "Which recognised sponsors are hiring software engineers in Amsterdam?",
+      "What Openings do you have for KvK 60733144?",
+      "How fresh is the jobs index?",
+    ];
+
+    const REGISTER_ONLY_NOTE =
+      'Note: if you have questions such as "Is Booking.com a recognised sponsor?" then you must use this different hsm-mcp server.';
+
+    const VARIANTS = {
+      A: { name: "muted hsm-mcp footnote (winner)" },
+      B: { name: "zero hsm-mcp mentions" },
+    };
+    const ORDER = ["A", "B"];
+
+    const mcpUrl = `${ORIGIN}/mcp`;
+    const healthUrl = `${ORIGIN}/health`;
+
+    function esc(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function listItems(items) {
+      return items.map((item) => `<li>${esc(item)}</li>`).join("\n");
+    }
+
+    function quotedListItems(items) {
+      return items.map((item) => `<li>${esc(`"${item}"`)}</li>`).join("\n");
+    }
+
+    function toolList() {
+      return V1_JOBS_TOOLS.map(
+        (t) => `<li><code>${esc(t.name)}</code> - ${esc(t.description)}</li>`,
+      ).join("\n");
+    }
+
+    function tuiBox(title, inner, muted) {
+      const klass = muted ? "tui-box tui-box--muted" : "tui-box";
+      return `<section class="${klass}" data-title="${esc(title)}">${inner}</section>`;
+    }
+
+    const lede = `
+      <p class="lede">
+        If you are a non-EU person looking for a job in the Netherlands, first - you have to be a
+        <a href="${esc(IND_HSM_PERMIT_URL)}">Highly skilled migrant</a>,
+        and on top of that, only a finite number of companies can sponsor you.
+      </p>
+      <p class="lede">
+        What if you could simply ask your AI (model of choice) which
+        <a href="${esc(IND_PUBLIC_REGISTER_WORK_URL)}">Dutch recognised sponsors</a>
+        are hiring? This remote MCP server will do exactly that. It will find you
+        openings by those recognised sponsors, and present them to you in an easy-to-read way.
+      </p>`;
+
+    function connectSnippets() {
+      return `
+        <p><strong>Claude Code</strong></p>
+        <pre><code>claude mcp add --transport http ${esc(CLIENT_KEY)} ${esc(mcpUrl)}</code></pre>
+        <p><strong>GitHub Copilot CLI</strong></p>
+        <pre><code>copilot mcp add --transport http ${esc(CLIENT_KEY)} ${esc(mcpUrl)}</code></pre>
+        <p><strong>Any MCP client</strong> (Cursor, etc.)</p>
+        <pre><code>{
+  "mcpServers": {
+    "${esc(CLIENT_KEY)}": { "url": "${esc(mcpUrl)}" }
+  }
+}</code></pre>`;
+    }
+
+    function connectInner(variant) {
+      if (variant !== "A") return connectSnippets();
+      const linked = REGISTER_ONLY_NOTE.replace(
+        "hsm-mcp",
+        `<a href="${esc(HSM_MCP_GITHUB_URL)}">hsm-mcp</a>`,
+      );
+      return `${connectSnippets()}<p class="muted">${linked}</p>`;
+    }
+
+    function footerInner(variant) {
+      if (variant === "A") {
+        return `
+          <p>
+            Unofficial project. Openings come from employer careers/ATS pages; register facts come from
+            <a href="${esc(IND_PUBLIC_REGISTER_WORK_URL)}">IND</a>
+            via <a href="${esc(HSM_MCP_GITHUB_URL)}">hsm-mcp</a>. Verify against primary sources before acting.
+          </p>`;
+      }
+      return `
+        <p>
+          Unofficial project. Openings come from employer careers/ATS pages.
+          Verify against primary sources before acting.
+        </p>`;
+    }
+
+    const pathsInner = `
+      <ul>
+        <li><code>/</code> - this discovery page</li>
+        <li><code>/mcp</code> - Streamable HTTP MCP (<code>serverInfo.name</code>: <code>${esc(SERVER_NAME)}</code>)</li>
+        <li><code>/health</code> - coarse operator health (<a href="${esc(healthUrl)}">${esc(healthUrl)}</a>)</li>
+      </ul>`;
+
+    const freshnessInner = `
+      <p>
+        Coarse deploy health: <a href="${esc(healthUrl)}"><code>/health</code></a>.
+        Rich index scope, crawl timestamps, and register-join upstream status: ask via
+        <code>get_index_status</code> in your MCP client.
+      </p>`;
+
+    function render(variant) {
+      const html = `
+        <div class="proto-banner">THROWAWAY PROTOTYPE — Winner A folded into production. Cycle A/B for contrast.</div>
+        <div class="page">
+          <header class="tui-header">
+            <h1>${esc(SERVER_NAME)}</h1>
+            ${lede}
+          </header>
+          ${tuiBox("Connect", connectInner(variant))}
+          ${tuiBox("Then just ask", `<ul>${quotedListItems(EXAMPLE_JOB_ASKS)}</ul>`)}
+          ${tuiBox("How fresh is this?", freshnessInner)}
+          ${tuiBox("Tools", `<ul>${toolList()}</ul>`, true)}
+          ${tuiBox("Public paths", pathsInner, true)}
+          <div class="tui-footer">${footerInner(variant)}</div>
+        </div>`;
+      document.getElementById("root").innerHTML = html;
+      document.getElementById("switch-label").textContent =
+        `${variant} — ${VARIANTS[variant].name}`;
+    }
+
+    function currentVariant() {
+      const v = new URLSearchParams(location.search).get("variant") || "A";
+      return ORDER.includes(v) ? v : "A";
+    }
+
+    function setVariant(v) {
+      const url = new URL(location.href);
+      url.searchParams.set("variant", v);
+      history.replaceState({}, "", url);
+      render(v);
+    }
+
+    function cycle(delta) {
+      const i = ORDER.indexOf(currentVariant());
+      setVariant(ORDER[(i + delta + ORDER.length) % ORDER.length]);
+    }
+
+    document.getElementById("prev").addEventListener("click", () => cycle(-1));
+    document.getElementById("next").addEventListener("click", () => cycle(1));
+    document.addEventListener("keydown", (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (e.key === "ArrowLeft") cycle(-1);
+      if (e.key === "ArrowRight") cycle(1);
+    });
+
+    render(currentVariant());
+  </script>
+</body>
+</html>

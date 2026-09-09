@@ -2,6 +2,7 @@ import { SHARED_RELEASE_HOST } from "./index-pass";
 
 export const SHARED_RELEASE_ORIGIN = `https://${SHARED_RELEASE_HOST}`;
 export const HSM_MCP_ORIGIN = "https://hsm.codealan.com";
+export const HSM_MCP_GITHUB_URL = "https://github.com/CodeAlanDebug/hsm-mcp";
 export const CLIENT_KEY = "hsm-jobs";
 export const HSM_MCP_CLIENT_KEY = "ind-sponsors";
 export const SERVER_NAME = "hsm-jobs-mcp";
@@ -26,7 +27,7 @@ export const V1_JOBS_TOOLS = [
   },
 ] as const;
 
-/** Job-shaped asks for the Discovery page “Then just ask” box. */
+/** Job-shaped asks for the Discovery page “Then just ask” box (rendered with quotes). */
 export const EXAMPLE_JOB_ASKS = [
   "Which recognised sponsors are hiring product designers?",
   "Which recognised sponsors are hiring software engineers in Amsterdam?",
@@ -34,13 +35,17 @@ export const EXAMPLE_JOB_ASKS = [
   "How fresh is the jobs index?",
 ] as const;
 
-/** Register-only ask — shown under Connect, not in the job-shaped list. */
-export const REGISTER_ONLY_ASK =
-  "Is Booking.com a recognised sponsor? (use hsm-mcp / ind-sponsors - not this server)";
+/**
+ * Muted Connect footnote on `/` (variant A). Link the words “hsm-mcp” to HSM_MCP_GITHUB_URL in HTML.
+ * Plain text for README / assertions (URL may appear beside or as markdown link).
+ */
+export const REGISTER_ONLY_NOTE =
+  'Note: if you have questions such as "Is Booking.com a recognised sponsor?" then you must use this different hsm-mcp server.';
 
-/** Locked v1 example asks — job asks plus register-only redirect. */
-export const EXAMPLE_ASKS = [...EXAMPLE_JOB_ASKS, REGISTER_ONLY_ASK] as const;
+/** Locked v1 example asks shown in “Then just ask” — job-shaped only. */
+export const EXAMPLE_ASKS = [...EXAMPLE_JOB_ASKS] as const;
 
+/** Honesty gist for the product README (not shown on GET `/`). */
 export const READING_THE_ANSWERS_GIST = [
   "Salary, Dutch-required, and sponsorship signals stay separate. Unknown is a valid answer.",
   "A match to the register is not a promise that this job will sponsor your transfer.",
