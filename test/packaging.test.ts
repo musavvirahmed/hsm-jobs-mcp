@@ -56,7 +56,10 @@ test("GET / documents connect with hsm-jobs first and Copilot CLI", async () => 
   expect(html).toContain("copilot mcp add --transport http");
   expect(html).toContain("Is Booking.com a recognised sponsor?");
   expect(html).toContain(HSM_MCP_GITHUB_URL);
-  expect(html).toMatch(/must use this different[\s\S]*hsm-mcp[\s\S]*server/);
+  expect(html).toMatch(/must use this other[\s\S]*hsm-mcp[\s\S]*server/);
+  expect(html).toContain("If you use Claude Code:");
+  expect(html).toContain("If you use GitHub Copilot CLI:");
+  expect(html).toContain("Or if you use any other AI-IDE, try applying this setting:");
   // First-try snippets are jobs-only — no second server in the JSON block
   expect(html).not.toMatch(
     /"mcpServers"[\s\S]*"ind-sponsors"[\s\S]*\}[\s\S]*\}/,
@@ -100,6 +103,8 @@ test("GET / includes freshness pointers; reading gist stays off the discovery pa
   }
   expect(html).toContain("/health");
   expect(html).toContain("get_index_status");
+  expect(html).toContain("~13,000");
+  expect(html).toContain("jobs index");
 });
 
 test("GET / is connect/discovery only — no portal surfaces", async () => {
@@ -123,12 +128,17 @@ test("GET / uses TUI discovery chrome (variant B winner)", async () => {
   const html = await response.text();
   expect(html).toContain('class="tui-header"');
   expect(html).toContain('class="tui-box"');
-  expect(html).toContain('data-title="Connect"');
-  expect(html).toContain('data-title="Then just ask"');
-  expect(html.indexOf('data-title="Connect"')).toBeLessThan(
-    html.indexOf('data-title="Then just ask"'),
+  expect(html).toContain(
+    'data-title="Step 1 of 2: Connect to the MCP server"',
   );
-  expect(html).toContain('data-title="How fresh is this?"');
+  expect(html).toContain('data-title="Step 2 of 2: Then just ask"');
+  expect(html.indexOf('data-title="Step 1 of 2: Connect to the MCP server"')).toBeLessThan(
+    html.indexOf('data-title="Step 2 of 2: Then just ask"'),
+  );
+  expect(html).toContain("data-title=\"What does 'how fresh' mean?\"");
+  expect(html).toContain(
+    "data-title=\"Besides 'just asking', what else can you do?\"",
+  );
   expect(html).toContain("tui-box--muted");
   expect(html).toContain("finite number of companies");
   expect(html).toContain("remote MCP server");
@@ -231,22 +241,21 @@ test("README is a human-first product README", () => {
   expect(readme).toContain(HSM_MCP_GITHUB_URL);
   expect(readme).toContain("Is Booking.com a recognised sponsor?");
   expect(readme).toContain("copilot mcp add --transport http");
-  expect(readme).toMatch(/how to read the answers/i);
+  expect(readme).toMatch(/what does 'how fresh' mean/i);
+  expect(readme).toMatch(/```mermaid/);
   expect(readme).not.toMatch(/plan,\s*don.?t do/i);
   expect(readme).not.toMatch(/do not implement/i);
   expect(readme).not.toMatch(/golden test/i);
   for (const tool of V1_JOBS_TOOLS) {
     expect(readme).toContain(tool.name);
+    expect(readme).toContain(tool.description);
   }
-  expect(readme.toLowerCase()).toMatch(/honesty|unknown/);
-  expect(readme).toMatch(/try it on your computer/i);
-  expect(readme).toMatch(/git clone/i);
-  expect(readme).toMatch(/node --version/);
-  expect(readme).toMatch(/npm run crawl/);
-  expect(readme).toMatch(/private-release:verify/);
-  expect(readme).toContain("http://127.0.0.1:8787/mcp");
+  for (const ask of EXAMPLE_ASKS) {
+    expect(readme).toContain(ask);
+  }
+  expect(readme).toContain("docs/readme/hsm-jobs-mcp-sierra-site-thumbnail-v1.png");
   expect(readme).toContain("docs/README-developers.md");
-  expect(readme).toMatch(/open folder/i);
+  expect(readme).toContain("AGENTS.md");
   expect(readme).toMatch(/get_index_status/);
 });
 
@@ -301,12 +310,12 @@ test("developer README and workflows document gated production crawl", () => {
   expect(developerReadme).toMatch(/local burst|CRAWL_MAX_ATTEMPTS=500/);
 });
 
-test("README prefers crawl:smoke and warns that live crawl can take hours", () => {
-  expect(readme).toContain("npm run crawl:smoke");
-  expect(readme).toMatch(/\[crawl\]/);
-  expect(readme).toMatch(/many minutes to hours/);
+test("product README points at the shared MCP; local crawl ops stay in developer README", () => {
   expect(readme).toMatch(/hsmjobs\.musavvir\.work\/mcp/);
-  expect(readme).toMatch(/Prefer the shared MCP|prefer.*shared MCP/i);
+  expect(readme).not.toMatch(/try it on your computer/i);
+  expect(developerReadme).toContain("npm run crawl:smoke");
+  expect(developerReadme).toMatch(/private-release:verify/);
+  expect(developerReadme).toContain("http://127.0.0.1:8787");
 });
 
 test("crawl CLI always process.exit after success or failure so Playwright cannot hang the batch", () => {
