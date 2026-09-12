@@ -116,7 +116,7 @@ test("successful authoritative refresh drops Openings absent from the feed; fail
     arguments: { kvk: "60733144" },
   });
   expect(afterSuccess.structuredContent).toMatchObject({
-    openings: [{ title: "Product Designer", url: RENTMAN_PRODUCT_DESIGNER_URL }],
+    openings: [{ title: "Product Designer", primary_url: RENTMAN_PRODUCT_DESIGNER_URL }],
   });
 
   await runOutOfBandCrawl({

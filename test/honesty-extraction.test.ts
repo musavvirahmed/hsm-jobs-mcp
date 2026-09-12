@@ -40,7 +40,7 @@ test("labeled quantitative salary span is returned unchanged on search_jobs and 
   });
   expect(JSON.stringify(searched.structuredContent)).not.toMatch(/meets|below|salary criterion/i);
 
-  const detailed = await connected.client.callTool({ name: "get_job", arguments: { url } });
+  const detailed = await connected.client.callTool({ name: "get_job", arguments: { primary_url: url } });
   expect(detailed.structuredContent).toMatchObject({
     found: true,
     honesty_salary: "€4,500–€5,500 per month",
@@ -78,7 +78,7 @@ test("thin ATS row with no JD body and no structured compensation is all unknown
 
   const detailed = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: "https://honesty.example.invalid/jobs/thin-row" },
+    arguments: { primary_url: "https://honesty.example.invalid/jobs/thin-row" },
   });
   expect(detailed.structuredContent).toMatchObject({
     found: true,
@@ -233,7 +233,7 @@ test("Dutch-required fixtures: hard cues, preferred, fluent English, and conflic
 
   const detailed = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: "https://honesty.example.invalid/jobs/dutch-nl" },
+    arguments: { primary_url: "https://honesty.example.invalid/jobs/dutch-nl" },
   });
   expect(detailed.structuredContent).toMatchObject({
     found: true,
@@ -318,7 +318,7 @@ test("reingesting an Opening refreshes honesty from the new honesty text surface
   });
   await ingestOpening(jobsIndex, first);
   connected = await connectIndex(jobsIndex);
-  const before = await connected.client.callTool({ name: "get_job", arguments: { url } });
+  const before = await connected.client.callTool({ name: "get_job", arguments: { primary_url: url } });
   expect(before.structuredContent).toMatchObject({
     found: true,
     honesty_salary: "unknown",
@@ -330,7 +330,7 @@ test("reingesting an Opening refreshes honesty from the new honesty text surface
     jd_extract: "Salary €4,500–€5,500 per month. Dutch not required. We sponsor HSM transfers.",
   });
   connected = await connectIndex(jobsIndex);
-  const after = await connected.client.callTool({ name: "get_job", arguments: { url } });
+  const after = await connected.client.callTool({ name: "get_job", arguments: { primary_url: url } });
   const searched = await connected.client.callTool({
     name: "search_jobs",
     arguments: { kvk: "60606060" },

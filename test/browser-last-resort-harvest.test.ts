@@ -91,8 +91,7 @@ test("browser harvest runs after HTTP HTML is empty and indexes Openings via job
     openings: [
       {
         title: "UX Designer",
-        url: jobUrl,
-        careers_url: jobUrl,
+        primary_url: jobUrl,
         source_class: "careers_site",
         register_join: { name: SPA.name, kvk: SPA.kvk, strength: "exact_kvk" },
       },
@@ -101,7 +100,7 @@ test("browser harvest runs after HTTP HTML is empty and indexes Openings via job
 
   const detailed = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: jobUrl },
+    arguments: { primary_url: jobUrl },
   });
   expect(detailed.structuredContent).toMatchObject({
     found: true,

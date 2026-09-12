@@ -88,7 +88,7 @@ test("get_job miss on an empty jobs index is a structured found:false", async ()
   connected = await connectEmptyIndex();
   const result = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: "https://rentman.io/jobs/product-designer" },
+    arguments: { primary_url: "https://rentman.io/jobs/product-designer" },
   });
   expect(result.isError).toBeFalsy();
   expect(result.structuredContent).toEqual({
@@ -157,18 +157,103 @@ test("the server advertises exactly the three v1 jobs tools", async () => {
     "search_jobs",
   ]);
   expect(listed.tools.some((tool) => tool.name.includes("-"))).toBe(false);
+  const search = listed.tools.find((tool) => tool.name === "search_jobs");
+  const getJob = listed.tools.find((tool) => tool.name === "get_job");
+  expect(search?.description).toMatch(/primary_url/);
+  expect(search?.description).toMatch(/clickable link/i);
+  expect(search?.description).toMatch(/result_note/);
+  expect(getJob?.description).toMatch(/primary_url/);
+  expect(getJob?.description).toMatch(/clickable link/i);
+});
+
+test("search_jobs omits careers_url and ats_url when equal to primary_url and keeps a distinct ATS URL", async () => {
+  const atsOnly = "https://jobs.ashbyhq.com/fixture/ats-only-1";
+  const careers = "https://careers.example.test/jobs/ux";
+  const atsDistinct = "https://jobs.ashbyhq.com/fixture/ux-1";
+  connected = await connectTools({
+    jobsIndex: createMemoryJobsIndex({
+      openings: [
+        {
+          identity: "ashby:fixture:ats-only",
+          primary_url: atsOnly,
+          careers_url: null,
+          ats_url: atsOnly,
+          title: "ATS Only Designer",
+          location: "Amsterdam",
+          jd_extract: null,
+          source_class: "ats_board",
+          honesty_salary: "unknown",
+          honesty_dutch_required: "unknown",
+          honesty_sponsorship_willingness: "unknown",
+          register_name: "Ats Only B.V.",
+          register_kvk: "20000001",
+          register_join_strength: "exact_kvk",
+          ats_family: "ashby",
+          board_token: "fixture",
+          posting_id: "ats-only-1",
+        },
+        {
+          identity: "ashby:fixture:distinct",
+          primary_url: careers,
+          careers_url: careers,
+          ats_url: atsDistinct,
+          title: "Distinct URL Designer",
+          location: "Utrecht",
+          jd_extract: null,
+          source_class: "ats_board",
+          honesty_salary: "unknown",
+          honesty_dutch_required: "unknown",
+          honesty_sponsorship_willingness: "unknown",
+          register_name: "Distinct B.V.",
+          register_kvk: "20000002",
+          register_join_strength: "exact_kvk",
+          ats_family: "ashby",
+          board_token: "fixture",
+          posting_id: "ux-1",
+        },
+      ],
+      snapshot: FIXTURE_SNAPSHOT,
+    }),
+    hsmMcp: createStubHsmMcp(),
+  });
+
+  const atsResult = await connected.client.callTool({
+    name: "search_jobs",
+    arguments: { query: "ATS Only" },
+  });
+  const atsCard = (atsResult.structuredContent as { openings: Array<Record<string, unknown>> })
+    .openings[0];
+  expect(atsCard).toMatchObject({ primary_url: atsOnly, title: "ATS Only Designer" });
+  expect(atsCard).not.toHaveProperty("ats_url");
+  expect(atsCard).not.toHaveProperty("careers_url");
+  expect(atsCard).not.toHaveProperty("url");
+
+  const distinctResult = await connected.client.callTool({
+    name: "search_jobs",
+    arguments: { query: "Distinct URL" },
+  });
+  const distinctCard = (
+    distinctResult.structuredContent as { openings: Array<Record<string, unknown>> }
+  ).openings[0];
+  expect(distinctCard).toMatchObject({
+    primary_url: careers,
+    ats_url: atsDistinct,
+    title: "Distinct URL Designer",
+  });
+  expect(distinctCard).not.toHaveProperty("careers_url");
+  expect(distinctCard).not.toHaveProperty("url");
 });
 
 test("get_job returns a found Opening card for the Rentman Product Designer URL", async () => {
   connected = await connectSeededIndex();
   const result = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: RENTMAN_PRODUCT_DESIGNER_URL },
+    arguments: { primary_url: RENTMAN_PRODUCT_DESIGNER_URL },
   });
   expect(result.isError).toBeFalsy();
   expect(result.structuredContent).toMatchObject({
     found: true,
-    url: RENTMAN_PRODUCT_DESIGNER_URL,
+    primary_url: RENTMAN_PRODUCT_DESIGNER_URL,
     title: "Product Designer",
     location: "Utrecht",
     register_join: {
@@ -193,7 +278,7 @@ test("get_job miss on a seeded jobs index is a structured found:false", async ()
   connected = await connectSeededIndex();
   const result = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: "https://missing.example.invalid/jobs/nope" },
+    arguments: { primary_url: "https://missing.example.invalid/jobs/nope" },
   });
   expect(result.isError).toBeFalsy();
   expect(result.structuredContent).toEqual({
@@ -214,17 +299,20 @@ test("search_jobs query returns the Rentman short card without JD body", async (
     register_join_status: string;
   };
   expect(payload.register_join_status).toBe("ok");
-  expect(payload.openings.map((opening) => opening.url)).toEqual([RENTMAN_PRODUCT_DESIGNER_URL]);
+  expect(payload.openings.map((opening) => opening.primary_url)).toEqual([RENTMAN_PRODUCT_DESIGNER_URL]);
   expect(payload.openings[0]).toMatchObject({
     title: "Product Designer",
-    url: RENTMAN_PRODUCT_DESIGNER_URL,
+    primary_url: RENTMAN_PRODUCT_DESIGNER_URL,
     location: "Utrecht",
+    ats_url: "https://jobs.ashbyhq.com/rentman",
     register_join: { name: "Rentman B.V.", kvk: "60733144", strength: "exact_kvk" },
     source_class: "ats_board",
     honesty_salary: "unknown",
     honesty_dutch_required: "unknown",
     honesty_sponsorship_willingness: "unknown",
   });
+  expect(payload.openings[0]).not.toHaveProperty("careers_url");
+  expect(payload.openings[0]).not.toHaveProperty("url");
   expect(JSON.stringify(result.structuredContent)).not.toMatch(/jd_extract|jd_body|description/);
 });
 
@@ -236,7 +324,7 @@ test("search_jobs by kvk returns Openings for that employer", async () => {
   });
   expect(result.isError).toBeFalsy();
   expect(result.structuredContent).toMatchObject({
-    openings: [{ url: RENTMAN_PRODUCT_DESIGNER_URL, register_join: { kvk: "60733144" } }],
+    openings: [{ primary_url: RENTMAN_PRODUCT_DESIGNER_URL, register_join: { kvk: "60733144" } }],
     index_scope: { pass: "partial", omissions_possible: true },
   });
 });
@@ -258,8 +346,8 @@ test("search_jobs location filter keeps Utrecht and drops Amsterdam", async () =
     arguments: { query: "designer", location: "Utrecht" },
   });
   expect(result.isError).toBeFalsy();
-  const payload = result.structuredContent as { openings: Array<{ url: string; location: string }> };
-  expect(payload.openings.map((opening) => opening.url)).toEqual([RENTMAN_PRODUCT_DESIGNER_URL]);
+  const payload = result.structuredContent as { openings: Array<{ primary_url: string; location: string }> };
+  expect(payload.openings.map((opening) => opening.primary_url)).toEqual([RENTMAN_PRODUCT_DESIGNER_URL]);
   expect(payload.openings[0]?.location).toBe("Utrecht");
 });
 
@@ -434,7 +522,7 @@ test("upstream degrade keeps last-known join and surfaces stale or error", async
   connected = await connectSeededIndex(createStubHsmMcp("stale"));
   const stale = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: RENTMAN_PRODUCT_DESIGNER_URL },
+    arguments: { primary_url: RENTMAN_PRODUCT_DESIGNER_URL },
   });
   expect(stale.structuredContent).toMatchObject({
     found: true,

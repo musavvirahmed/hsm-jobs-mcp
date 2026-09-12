@@ -72,9 +72,8 @@ test("golden: board-seed Ashby rentman ingest returns the Product Designer caree
     openings: [
       {
         title: "Product Designer",
-        url: RENTMAN_PRODUCT_DESIGNER_URL,
+        primary_url: RENTMAN_PRODUCT_DESIGNER_URL,
         location: "Utrecht",
-        careers_url: RENTMAN_PRODUCT_DESIGNER_URL,
         ats_url: PRODUCT_DESIGNER_ATS_URL,
         register_join: { name: "Rentman B.V.", kvk: "60733144", strength: "exact_kvk" },
         source_class: "ats_board",
@@ -92,14 +91,19 @@ test("golden: board-seed Ashby rentman ingest returns the Product Designer caree
     },
   });
   expect(JSON.stringify(searched.structuredContent)).not.toMatch(/jd_extract|jd_body|description/);
+  const rentmanCard = (
+    searched.structuredContent as { openings: Array<Record<string, unknown>> }
+  ).openings[0];
+  expect(rentmanCard).not.toHaveProperty("careers_url");
+  expect(rentmanCard).not.toHaveProperty("url");
 
   const detailed = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: RENTMAN_PRODUCT_DESIGNER_URL },
+    arguments: { primary_url: RENTMAN_PRODUCT_DESIGNER_URL },
   });
   expect(detailed.structuredContent).toMatchObject({
     found: true,
-    url: RENTMAN_PRODUCT_DESIGNER_URL,
+    primary_url: RENTMAN_PRODUCT_DESIGNER_URL,
     title: "Product Designer",
     register_join: { name: "Rentman B.V.", kvk: "60733144", strength: "exact_kvk" },
     source_class: "ats_board",
@@ -111,12 +115,12 @@ test("golden: board-seed Ashby rentman ingest returns the Product Designer caree
     name: "search_jobs",
     arguments: { kvk: "60733144" },
   });
-  const kvkPayload = byKvk.structuredContent as { openings: Array<{ url: string; title: string }> };
+  const kvkPayload = byKvk.structuredContent as { openings: Array<{ primary_url: string; title: string }> };
   expect(kvkPayload.openings.map((opening) => opening.title).sort()).toEqual([
     "Head of Product Marketing",
     "Product Designer",
   ]);
-  expect(kvkPayload.openings.find((opening) => opening.title === "Product Designer")?.url).toBe(
+  expect(kvkPayload.openings.find((opening) => opening.title === "Product Designer")?.primary_url).toBe(
     RENTMAN_PRODUCT_DESIGNER_URL,
   );
 
@@ -159,8 +163,11 @@ test("primary link falls back to the ATS URL when the careers URL does not resol
     arguments: { query: "product designer" },
   });
   expect(searched.structuredContent).toMatchObject({
-    openings: [{ title: "Product Designer", url: PRODUCT_DESIGNER_ATS_URL, ats_url: PRODUCT_DESIGNER_ATS_URL }],
+    openings: [{ title: "Product Designer", primary_url: PRODUCT_DESIGNER_ATS_URL }],
   });
+  expect(
+    (searched.structuredContent as { openings: Array<Record<string, unknown>> }).openings[0],
+  ).not.toHaveProperty("ats_url");
   expect(JSON.stringify(searched.structuredContent)).not.toMatch(/rentman\.io\/jobs\/product-designer/);
 });
 
@@ -180,11 +187,11 @@ test("a successful authoritative fetch drops Openings absent from the feed", asy
     arguments: { kvk: "60733144" },
   });
   expect(byKvk.structuredContent).toMatchObject({
-    openings: [{ title: "Product Designer", url: RENTMAN_PRODUCT_DESIGNER_URL }],
+    openings: [{ title: "Product Designer", primary_url: RENTMAN_PRODUCT_DESIGNER_URL }],
   });
   const missing = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: HEAD_OF_PM_ATS_URL },
+    arguments: { primary_url: HEAD_OF_PM_ATS_URL },
   });
   expect(missing.structuredContent).toMatchObject({ found: false });
   expect((await index.listOpeningsByBoard("ashby", "rentman")).map((row) => row.posting_id)).toEqual([
@@ -260,7 +267,7 @@ test("index-time register join stays unmatched without inventing a KvK when the 
     openings: [
       {
         title: "Product Designer",
-        url: RENTMAN_PRODUCT_DESIGNER_URL,
+        primary_url: RENTMAN_PRODUCT_DESIGNER_URL,
         register_join: { name: null, kvk: null, strength: "unmatched" },
       },
     ],
@@ -288,7 +295,7 @@ test("jobs tools stay read-only and do not fetch the public board feed on ask", 
   });
   await connected.client.callTool({
     name: "get_job",
-    arguments: { url: RENTMAN_PRODUCT_DESIGNER_URL },
+    arguments: { primary_url: RENTMAN_PRODUCT_DESIGNER_URL },
   });
   expect(fetched).toEqual([ASHBY_RENTMAN_FEED_URL]);
 });
@@ -319,8 +326,8 @@ test.skipIf(process.env.LIVE_ASHBY !== "1")(
       name: "search_jobs",
       arguments: { query: "product designer", kvk: "60733144" },
     });
-    const urls = (searched.structuredContent as { openings: Array<{ url: string }> }).openings.map(
-      (opening) => opening.url,
+    const urls = (searched.structuredContent as { openings: Array<{ primary_url: string }> }).openings.map(
+      (opening) => opening.primary_url,
     );
     expect(urls).toContain(RENTMAN_PRODUCT_DESIGNER_URL);
   },

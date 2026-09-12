@@ -97,8 +97,7 @@ test("Greenhouse board-seed Openings are searchable via jobs tools with source_c
     openings: [
       {
         title: "Product Designer",
-        url: PRODUCT_DESIGNER_CAREERS,
-        careers_url: PRODUCT_DESIGNER_CAREERS,
+        primary_url: PRODUCT_DESIGNER_CAREERS,
         ats_url: PRODUCT_DESIGNER_ATS,
         source_class: "ats_board",
         register_join: { name: ACME.name, kvk: ACME.kvk, strength: "exact_kvk" },
@@ -107,7 +106,7 @@ test("Greenhouse board-seed Openings are searchable via jobs tools with source_c
   });
   const detailed = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: PRODUCT_DESIGNER_CAREERS },
+    arguments: { primary_url: PRODUCT_DESIGNER_CAREERS },
   });
   expect(detailed.structuredContent).toMatchObject({
     found: true,
@@ -262,22 +261,21 @@ test("HTML careers fallback indexes first-party job cards with source_class care
     openings: [
       {
         title: "UX Designer",
-        url: jobUrl,
-        careers_url: jobUrl,
+        primary_url: jobUrl,
         source_class: "careers_site",
         register_join: { name: STATIC.name, kvk: STATIC.kvk, strength: "exact_kvk" },
       },
     ],
   });
   const payload = searched.structuredContent as {
-    openings: Array<{ url: string; ats_url: string | null }>;
+    openings: Array<{ primary_url: string; ats_url: string | null }>;
   };
   expect(payload.openings[0]?.ats_url == null).toBe(true);
   expect(JSON.stringify(searched.structuredContent)).not.toMatch(/linkedin\.com|indeed\.com/i);
 
   const detailed = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: jobUrl },
+    arguments: { primary_url: jobUrl },
   });
   expect(detailed.structuredContent).toMatchObject({
     found: true,

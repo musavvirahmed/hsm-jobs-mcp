@@ -29,11 +29,11 @@ export function formatPrivateReleaseFailures(failures: PrivateReleaseVerifyFailu
 }
 
 export function isGoldenOpening(opening: {
-  url?: string;
+  primary_url?: string;
   title?: string;
   register_join?: { kvk?: string | null };
 }): boolean {
-  if (opening.url && isGoldenOpeningUrl(opening.url)) {
+  if (opening.primary_url && isGoldenOpeningUrl(opening.primary_url)) {
     return true;
   }
   return (
@@ -141,14 +141,14 @@ export async function verifyPrivateRelease(client: Client): Promise<PrivateRelea
 
   const searchPayload = search.structuredContent as {
     openings?: Array<{
-      url?: string;
+      primary_url?: string;
       title?: string;
       register_join?: { strength?: string; kvk?: string | null };
     }>;
   };
   const openings = searchPayload.openings ?? [];
   const goldenOpening = openings.find((opening) => isGoldenOpening(opening));
-  if (!goldenOpening?.url) {
+  if (!goldenOpening?.primary_url) {
     failures.push({
       check: "search_jobs golden Opening",
       detail:
@@ -163,15 +163,15 @@ export async function verifyPrivateRelease(client: Client): Promise<PrivateRelea
     });
   }
 
-  const goldenUrl = goldenOpening?.url ?? RENTMAN_PRODUCT_DESIGNER_URL;
+  const goldenPrimaryUrl = goldenOpening?.primary_url ?? RENTMAN_PRODUCT_DESIGNER_URL;
   const job = await client.callTool({
     name: "get_job",
-    arguments: { url: goldenUrl },
+    arguments: { primary_url: goldenPrimaryUrl },
   });
   if (job.isError) {
     failures.push({
       check: "get_job",
-      detail: `tool returned an MCP error for ${goldenUrl}`,
+      detail: `tool returned an MCP error for ${goldenPrimaryUrl}`,
     });
   } else {
     const jobPayload = job.structuredContent as {
@@ -183,7 +183,7 @@ export async function verifyPrivateRelease(client: Client): Promise<PrivateRelea
     if (!jobPayload.found) {
       failures.push({
         check: "get_job golden Opening",
-        detail: `found:false for ${goldenUrl} — crawl may not have persisted Openings to local D1`,
+        detail: `found:false for ${goldenPrimaryUrl} — crawl may not have persisted Openings to local D1`,
       });
     } else {
       for (const field of [
