@@ -60,6 +60,15 @@ Ask `get_index_status` for the current last successful crawl time, stale flag, j
 
 ---
 
+**Outcome:** A kennismigrant can ask an AI for Opening links at recognised sponsors that match a title.
+
+| | |
+| --- | --- |
+| **Problem** | When a foreigner in the Netherlands holds a Highly Skilled Migrant (kennismigrant) status, career mobility (inside Netherlands) is limited. They can only work for recognised sponsors, and they must also stay above the HSM salary criterion. Although IND publishes a list of ~13,000 recognised sponsor companies, but using that list to find a job is a tall order. |
+| **Goal** | What if an HSM could simply ask an AI for job opening links where recognised sponsors are hiring for her/his expertise? |
+| **Method** | I wondered if a remote MCP server could magically take care of this ask. So I wrote down the problem, the context, and the goal. I then asked agents to keep asking me questions and to keep challenging the plan until it was solid. That plan became ADRs, and then tickets. Multiple agents were harnessed to keep implementing one ticket at a time and they kept me in the loop after each. I eventually set up the Cloudflare Workers and started the crawls. Afterwards agents tested how the crawls performed, then we tightened crawl strategy and usage. I finally declared success after thorough manual testing of the MCP server. |
+| **Index model** | The jobs index is a durable store of job openings from employer careers sites and public ATS boards.<br><br>It is simply the result of a crawler filling the index in the background. These MCP tools never scrape when you ask. They only read the index.<br><br>Each job opening card includes the posting link, a register join, and honesty fields. Register join is IND Work identity and match strength. It is not a promise that this vacancy will sponsor an HSM transfer. Honesty fields are salary text, Dutch-required, and sponsorship willingness. This MCP server does not compare pay to the salary criterion (yet). You or your AI agent must do that.<br><br>A title search returns a capped list, not every match in the index (yet). After a full careers pass, every current recognised sponsor has been checked at least once. Only a few hundred typically have live job openings at once. Ask `get_index_status` for scope and freshness. |
+
 ## Learn about the architecture
 
 ```mermaid
