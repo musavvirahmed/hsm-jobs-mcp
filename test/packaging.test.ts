@@ -257,6 +257,10 @@ test("README is a human-first product README", () => {
   expect(readme).toContain("docs/README-developers.md");
   expect(readme).toContain("AGENTS.md");
   expect(readme).toMatch(/get_index_status/);
+  expect(readme).toContain("**Problem**");
+  expect(readme).toContain("**Goal**");
+  expect(readme).toContain("**Method**");
+  expect(readme).toContain("**Index model**");
 });
 
 test("developer README documents operator loop and architecture", () => {
