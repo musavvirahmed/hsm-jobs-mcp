@@ -70,7 +70,7 @@ test("full careers pass runner records a terminal outcome for every register KvK
   });
   const miss = await connected.client.callTool({
     name: "get_job",
-    arguments: { url: "https://missing.example/jobs/none" },
+    arguments: { primary_url: "https://missing.example/jobs/none" },
   });
   expect(miss.structuredContent).toMatchObject({
     found: false,

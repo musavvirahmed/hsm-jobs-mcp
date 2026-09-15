@@ -84,7 +84,7 @@ export function formatSearchResultNote(input: {
 export async function getJob(args: unknown, deps: JobsToolsDeps): Promise<GetJobOutput> {
   const parsed = getJobInputSchema.parse(args);
   const snapshot = await deps.jobsIndex.snapshot();
-  const opening = await deps.jobsIndex.getOpening(parsed.url);
+  const opening = await deps.jobsIndex.getOpening(parsed.primary_url);
   if (!opening) {
     return { found: false, index_scope: snapshot.index_scope };
   }
@@ -127,12 +127,15 @@ async function revalidateOpenings(
 }
 
 function toSearchCard(opening: OpeningRecord, registerJoin: RegisterJoin) {
+  const primary_url = opening.primary_url;
   return {
     title: opening.title,
-    url: opening.primary_url,
+    primary_url,
     location: opening.location,
-    ...(opening.careers_url ? { careers_url: opening.careers_url } : {}),
-    ...(opening.ats_url ? { ats_url: opening.ats_url } : {}),
+    ...(opening.careers_url && opening.careers_url !== primary_url
+      ? { careers_url: opening.careers_url }
+      : {}),
+    ...(opening.ats_url && opening.ats_url !== primary_url ? { ats_url: opening.ats_url } : {}),
     register_join: registerJoin,
     source_class: opening.source_class,
     honesty_salary: opening.honesty_salary,

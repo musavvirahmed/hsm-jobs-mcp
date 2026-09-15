@@ -138,7 +138,7 @@ test("connectPrivateReleaseMcp targets /mcp on the configured origin", async () 
 test("isGoldenOpening accepts live Ashby board URLs for Rentman Product Designer", () => {
   expect(
     isGoldenOpening({
-      url: "https://jobs.ashbyhq.com/rentman/86561042-c8f9-4a2c-9d93-c51ba421e6e7",
+      primary_url: "https://jobs.ashbyhq.com/rentman/86561042-c8f9-4a2c-9d93-c51ba421e6e7",
       title: "Product Designer",
       register_join: { kvk: "60733144" },
     }),

@@ -31,7 +31,7 @@ export const registerJoinSchema = z.object({
 
 export const openingSearchCardSchema = z.object({
   title: z.string(),
-  url: z.string(),
+  primary_url: z.string(),
   location: z.string().nullable(),
   careers_url: z.string().optional(),
   ats_url: z.string().optional(),
@@ -64,7 +64,7 @@ export const searchJobsOutputSchema = z.object({
 export type SearchJobsOutput = z.infer<typeof searchJobsOutputSchema>;
 
 export const getJobInputSchema = z.object({
-  url: z.string().min(1),
+  primary_url: z.string().min(1),
 });
 
 export const getJobMissSchema = z.object({
