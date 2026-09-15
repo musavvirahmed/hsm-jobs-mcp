@@ -11,3 +11,4 @@ Created lazily by `/domain-modeling` when a decision actually resolves.
 - [0007 — Post-v1 README and MCP discovery site](./0007-post-v1-packaging-discovery.md)
 - [0008 — Deterministic index-time honesty extraction](./0008-jd-honesty-extraction.md)
 - [0009 — v1 stack and hosting (Workers + D1 + batch crawl)](./0009-v1-stack-and-hosting.md)
+- [0010 — Chatbot beside MCP clients (off Worker origin)](./0010-chatbot-beside-mcp.md)

@@ -4,4 +4,6 @@ After MCP v1 is usable, **hsm-jobs-mcp** ships product packaging as a kennismigr
 
 **Amended (Simplify Connect copy):** dropped required dual-attach of `ind-sponsors` from Connect hero snippets; clients *may* still attach hsm-mcp for register-only questions. Dropped the reading-the-answers box from `/`.
 
+**Amended (chatbot):** a parallel **chatbot** human path may exist off this Worker origin; it does not reopen Opening search or a portal on `GET /`. See [ADR 0010](./0010-chatbot-beside-mcp.md).
+
 **Considered options:** browser Opening search / sponsor directory on `/`; JSON-only root with no human HTML; coupling first public `/mcp` to open-sourcing; keeping “plan, don’t do” README after v1 exists; inventing hsm-mcp’s `30/min` rate limit; example asks for “last 24h” or title totals; `get_job` URL prompts on the discovery page; rewriting `AGENTS.md` in this ticket; Rentman golden-test myth on `/` or README; keeping required dual-attach and the `/` reading-gist for first-try onboarding — rejected so packaging stays MCP-first, honest to the v1 contract, and shippable while the repo stays private.
