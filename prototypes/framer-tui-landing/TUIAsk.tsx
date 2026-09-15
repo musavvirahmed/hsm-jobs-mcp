@@ -213,7 +213,7 @@ export default function TUIAsk(props: TUIAskProps) {
         props.intro ||
         "Ask which recognised sponsors are hiring. You do not need an AI harness or MCP tools — type a question."
     const isStatic = useIsStaticRenderer()
-    const inputRef = useRef<HTMLInputElement>(null)
+    const inputRef = useRef<HTMLTextAreaElement>(null)
     const scrollRef = useRef<HTMLDivElement>(null)
     const [draft, setDraft] = useState("")
     const [pending, setPending] = useState(false)
@@ -290,7 +290,7 @@ export default function TUIAsk(props: TUIAskProps) {
                 minHeight: 520,
                 background: BLACK,
                 color: PAPER,
-                fontSize: 13,
+                fontSize: 16,
                 lineHeight: 1.55,
             })}
         >
@@ -346,7 +346,7 @@ export default function TUIAsk(props: TUIAskProps) {
                                     border: "none",
                                     padding: 0,
                                     cursor: isStatic ? "default" : "pointer",
-                                    fontSize: 13,
+                                    fontSize: 16,
                                     lineHeight: 1.5,
                                 })}
                             >
@@ -360,7 +360,7 @@ export default function TUIAsk(props: TUIAskProps) {
                 onSubmit={onSubmit}
                 style={box({
                     display: "flex",
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
                     alignItems: "center",
                     gap: 8,
                     padding: "10px 12px",
@@ -373,26 +373,42 @@ export default function TUIAsk(props: TUIAskProps) {
                         display: "flex",
                         alignItems: "center",
                         gap: 8,
-                        flex: "1 1 220px",
+                        flex: "1 1 auto",
                         minWidth: 0,
                     }}
                 >
-                    <span style={{ color: CYAN }}>{">"}</span>
-                    <input
+                    <span style={{ color: CYAN, lineHeight: 1.45 }}>{">"}</span>
+                    <textarea
                         ref={inputRef}
                         value={draft}
                         disabled={isStatic || pending}
+                        rows={2}
                         onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault()
+                                void run(draft)
+                            }
+                        }}
                         placeholder="Which recognised sponsors are hiring software engineers in Amsterdam?"
                         aria-label="Ask which recognised sponsors are hiring"
                         style={box({
                             flex: 1,
                             minWidth: 0,
+                            width: "100%",
+                            minHeight: 46,
+                            maxHeight: 72,
                             border: "none",
                             outline: "none",
+                            resize: "none",
                             background: "transparent",
                             color: PAPER,
-                            fontSize: 13,
+                            fontSize: 16,
+                            lineHeight: 1.45,
+                            padding: 0,
+                            overflowWrap: "anywhere",
+                            whiteSpace: "pre-wrap",
+                            overflow: "auto",
                         })}
                     />
                 </div>
@@ -405,7 +421,8 @@ export default function TUIAsk(props: TUIAskProps) {
                         color: CYAN,
                         padding: "6px 12px",
                         cursor: "pointer",
-                        fontSize: 12,
+                        fontSize: 15,
+                        flexShrink: 0,
                     })}
                 >
                     ask
@@ -533,7 +550,7 @@ function OpeningsTable({ openings }: { openings: OpeningCard[] }) {
             style={box({
                 overflowX: "auto",
                 color: PAPER,
-                fontSize: 12,
+                fontSize: 15,
                 lineHeight: 1.45,
             })}
         >
@@ -546,7 +563,7 @@ function OpeningsTable({ openings }: { openings: OpeningCard[] }) {
                         flexWrap: "nowrap",
                         whiteSpace: "pre",
                         fontFamily: MONO,
-                        fontSize: 12,
+                        fontSize: 15,
                         lineHeight: 1.45,
                     }}
                 >
@@ -587,4 +604,3 @@ addPropertyControls(TUIAsk, {
         defaultValue: "",
     },
 })
-
