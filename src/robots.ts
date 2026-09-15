@@ -1,5 +1,5 @@
 const JOB_LIKE_PATH =
-  /^\/(jobs?|careers?|vacatures?|werken-bij|work-with-us|join-us|opportunities|openings)(\/|$)/i;
+  /^\/(jobs?|careers?|vacatures?|werken-bij|work-with-us|join-us|job-board|opportunities|openings)(\/|$)/i;
 
 export const PRODUCT_USER_AGENT = "hsm-jobs-mcp/0.1 (opening-ingest; careers HTML fallback)";
 

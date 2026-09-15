@@ -37,6 +37,14 @@ export const RENTMAN_ASHBY_BOARD_SEED: BoardSeed = {
   public_board_feed_url: ashbyBoardFeedUrl("rentman"),
 };
 
+/** OpenUp Technologies B.V. — Greenhouse board evidenced on openup.com/job-board. */
+export const OPENUP_GREENHOUSE_BOARD_SEED: BoardSeed = {
+  kvk: "76848337",
+  ats_family: "greenhouse",
+  board_token: "openup",
+  public_board_feed_url: boardFeedUrl("greenhouse", "openup"),
+};
+
 export type WebsiteIngestResult = {
   kvk: string;
   name: string;

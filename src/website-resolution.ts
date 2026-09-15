@@ -102,6 +102,11 @@ const NAME_STOPWORDS = new Set([
   "company",
   "plc",
   "limited",
+  // Common legal/trade fillers that rarely appear on brand marketing pages
+  // (e.g. register "OpenUp Technologies B.V." vs site copy "OpenUp").
+  "technologies",
+  "solutions",
+  "services",
 ]);
 
 export async function resolveOfficialWebsite(
@@ -204,8 +209,14 @@ function domainGuessUrls(name: string): string[] {
   if (embedded) {
     urls.push(`https://${embedded}/`);
   }
+  // Prefer brand/operating slug (distinctive tokens only) before the raw full
+  // legal-name slug — "OpenUp Technologies" → openup.com before openuptechnologies.com.
+  const brandSlug = nameTokens(stripped).join("");
+  if (brandSlug.length >= 2) {
+    urls.push(`https://${brandSlug}.nl/`, `https://${brandSlug}.com/`);
+  }
   const slug = slugify(stripped);
-  if (slug.length >= 2) {
+  if (slug.length >= 2 && slug !== brandSlug) {
     urls.push(`https://${slug}.nl/`, `https://${slug}.com/`);
   }
   return [...new Set(urls)];

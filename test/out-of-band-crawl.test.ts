@@ -72,7 +72,11 @@ test("out-of-band daily refresh updates crawl freshness via get_index_status wit
   });
 
   expect(report.re_partialed).toBe(false);
-  expect(fetched).toEqual([ASHBY_RENTMAN_FEED_URL]);
+  // Migration 0007 also seeds OpenUp Greenhouse; refresh walks every board_seed.
+  expect(fetched).toEqual([
+    ASHBY_RENTMAN_FEED_URL,
+    "https://boards-api.greenhouse.io/v1/boards/openup/jobs?content=true",
+  ]);
 
   connected = await connectIndex(index);
   const status = await connected.client.callTool({ name: "get_index_status", arguments: {} });
@@ -283,7 +287,8 @@ test("out-of-band opening refresh caps the seed queue and still includes empty b
     ASHBY_RENTMAN_FEED_URL,
     "https://api.ashbyhq.com/posting-api/job-board/empty-old?includeCompensation=true",
   ]);
-  expect(progress.some((line) => /board refresh: 2 of 3 seed/.test(line))).toBe(true);
+  // Migration 0007 adds OpenUp Greenhouse → 4 seeds total (Rentman + OpenUp + 2 empties).
+  expect(progress.some((line) => /board refresh: 2 of 4 seed/.test(line))).toBe(true);
 });
 
 test("boardRefreshOnly skips website/ladder so opening-refresh cannot swallow catch-up work", async () => {
@@ -321,6 +326,7 @@ async function seedRentmanBoard() {
     fetchBoardFeed: recordedAshbyFeed([]),
     getPage,
     now: () => NOW,
+    seeds: [RENTMAN_ASHBY_BOARD_SEED],
   });
   return { index };
 }
