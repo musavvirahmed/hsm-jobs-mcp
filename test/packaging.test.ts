@@ -113,11 +113,17 @@ test("GET / is connect/discovery only — no portal surfaces", async () => {
     emptyDeps(),
   );
   const html = (await response.text()).toLowerCase();
-  expect(html).not.toMatch(/<form[^>]*action/);
+  expect(html).not.toMatch(/<form\b/);
+  expect(html).not.toMatch(/<input\b/);
+  expect(html).not.toMatch(/<textarea\b/);
+  expect(html).not.toMatch(/contenteditable/);
   expect(html).not.toContain("search_jobs(");
   expect(html).not.toMatch(/golden test/i);
   expect(html).not.toContain("```mermaid");
   expect(html).not.toMatch(/stdio/i);
+  expect(html).not.toContain("chatbot");
+  expect(html).not.toContain("easy-hsm-jobs.framer.website");
+  expect(html).not.toContain("easy-hsm-jobs.musavvir.work");
 });
 
 test("GET / uses TUI discovery chrome (variant B winner)", async () => {
@@ -261,6 +267,12 @@ test("README is a human-first product README", () => {
   expect(readme).toContain("**Goal**");
   expect(readme).toContain("**Method**");
   expect(readme).toContain("**Index model**");
+});
+
+test("product README omits chatbot URL and promotion", () => {
+  expect(readme).not.toMatch(/chatbot/i);
+  expect(readme).not.toMatch(/easy-hsm-jobs\.framer\.website/i);
+  expect(readme).not.toMatch(/easy-hsm-jobs\.musavvir\.work/i);
 });
 
 test("developer README documents operator loop and architecture", () => {
