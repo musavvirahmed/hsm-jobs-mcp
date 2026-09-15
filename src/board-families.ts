@@ -111,7 +111,17 @@ export function fingerprintBoardTokens(html: string): FingerprintedBoard[] {
     if (!found.has(key)) found.set(key, { ats_family: family, board_token: cleaned });
   };
 
-  for (const match of html.matchAll(/boards(?:-api)?\.greenhouse\.io\/(?:embed\/job_board\/js\?for=)?([a-z0-9_-]+)/gi)) {
+  // US/EU hosted boards, embed snippet, and public Job Board API paths.
+  for (const match of html.matchAll(
+    /boards(?:-api)?(?:\.[a-z]+)?\.greenhouse\.io\/(?:embed\/job_board\/js\?for=)?([a-z0-9_-]+)/gi,
+  )) {
+    const token = match[1]?.toLowerCase();
+    // `boards-api.greenhouse.io/v1/boards/{token}/…` otherwise captures "v1".
+    if (token && token !== "v1" && token !== "embed") add("greenhouse", token);
+  }
+  for (const match of html.matchAll(
+    /boards-api(?:\.[a-z]+)?\.greenhouse\.io\/v1\/boards\/([a-z0-9_-]+)/gi,
+  )) {
     if (match[1]) add("greenhouse", match[1]);
   }
   for (const match of html.matchAll(/jobs\.lever\.co\/([a-z0-9_-]+)/gi)) {

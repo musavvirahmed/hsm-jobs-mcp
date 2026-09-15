@@ -11,6 +11,7 @@ import { createJobsMcpServer } from "../src/mcp-server";
 import {
   ingestFromBoardSeeds,
   ingestWebsiteResolutions,
+  OPENUP_GREENHOUSE_BOARD_SEED,
   RENTMAN_ASHBY_BOARD_SEED,
   type BoardFeedResponse,
 } from "../src/opening-ingest";
@@ -143,7 +144,10 @@ test("Opening identity is ATS family, board token, and posting id", async () => 
     posting_id: PRODUCT_DESIGNER_ID,
   });
   const seeds = await index.listBoardSeeds();
-  expect(seeds).toEqual([RENTMAN_ASHBY_BOARD_SEED]);
+  // Migration 0007 also seeds OpenUp Greenhouse; golden-path refresh stays Rentman-scoped.
+  expect(seeds).toEqual(
+    expect.arrayContaining([RENTMAN_ASHBY_BOARD_SEED, OPENUP_GREENHOUSE_BOARD_SEED]),
+  );
 });
 
 test("primary link falls back to the ATS URL when the careers URL does not resolve", async () => {
@@ -172,6 +176,7 @@ test("a successful authoritative fetch drops Openings absent from the feed", asy
     fetchBoardFeed: async () => ({ ok: true, status: 200, body: productDesignerOnlyFeed() }),
     getPage: fakeGetPage(rentmanPages()),
     now: () => NOW,
+    seeds: [RENTMAN_ASHBY_BOARD_SEED],
   });
 
   connected = await connectIndex(index);
@@ -205,6 +210,7 @@ test("reingesting a known posting reuses the stored careers URL and does not re-
       return inner(url);
     },
     now: () => "2026-08-28T00:00:00Z",
+    seeds: [RENTMAN_ASHBY_BOARD_SEED],
   });
   expect(probed.some((url) => url.includes("/jobs/product-designer"))).toBe(false);
   expect(probed.some((url) => url.includes("/jobs/head-of-product-marketing"))).toBe(false);
@@ -218,6 +224,7 @@ test("a failed board fetch does not clear known Openings", async () => {
     fetchBoardFeed: async () => ({ ok: false, status: 500 }),
     getPage: fakeGetPage(rentmanPages()),
     now: () => "2026-08-27T13:00:00Z",
+    seeds: [RENTMAN_ASHBY_BOARD_SEED],
   });
   expect(failed.results[0]).toMatchObject({ status: "fetch_failed", openings_removed: 0 });
 
@@ -250,6 +257,7 @@ test("index-time register join stays unmatched without inventing a KvK when the 
     fetchBoardFeed: recordedAshbyFeed([]),
     getPage: fakeGetPage(rentmanPages()),
     now: () => NOW,
+    seeds: [RENTMAN_ASHBY_BOARD_SEED],
   });
   connected = await connectIndex(index);
   const searched = await connected.client.callTool({
@@ -355,6 +363,7 @@ async function ingestRentmanGoldenPath(opts?: {
     fetchBoardFeed: opts?.fetchBoardFeed ?? recordedAshbyFeed([]),
     getPage,
     now: () => NOW,
+    seeds: [RENTMAN_ASHBY_BOARD_SEED],
   });
   return { index };
 }

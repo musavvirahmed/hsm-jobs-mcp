@@ -109,7 +109,7 @@ test("listBoardSeedRefreshQueue joins openings in memory (live vs empty)", async
   );
 
   const loaded = await loadBoardSeedsForOpeningRefresh(index, { maxSeeds: 1 });
-  expect(loaded.total).toBe(2);
+  expect(loaded.total).toBe(3);
   expect(loaded.selected.map((row) => row.board_token)).toEqual(["rentman"]);
 });
 

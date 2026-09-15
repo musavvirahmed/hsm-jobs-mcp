@@ -11,7 +11,15 @@ export type HtmlCareerOpening = {
   jd_extract: string | null;
 };
 
-const CAREERS_PATHS = ["/jobs", "/careers", "/vacatures", "/werken-bij", "/join-us", "/work-with-us"];
+const CAREERS_PATHS = [
+  "/jobs",
+  "/careers",
+  "/vacatures",
+  "/werken-bij",
+  "/join-us",
+  "/work-with-us",
+  "/job-board",
+];
 
 export function careersListingUrls(officialHost: string): string[] {
   const host = officialHost.replace(/^www\./i, "");
