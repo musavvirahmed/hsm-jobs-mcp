@@ -1,5 +1,8 @@
 import type { CrawlProgress } from "./crawl-cli-progress";
-import { loadBoardSeedsForOpeningRefresh } from "./board-seed-refresh";
+import {
+  loadBoardSeedsForOpeningRefresh,
+  parseCrawlRefreshBudgetMs,
+} from "./board-seed-refresh";
 import {
   ingestExtractionLadder,
   ingestFromBoardSeeds,
@@ -52,6 +55,8 @@ export async function runOutOfBandCrawl(opts: {
   failureAlertThreshold?: number;
   onProgress?: CrawlProgress;
   maxRefreshSeeds?: number;
+  /** Soft wall-clock budget for board refresh (ms). Overrides `CRAWL_REFRESH_BUDGET_MS`. */
+  refreshBudgetMs?: number;
   /** Skip website/ladder for missing KvKs (production opening-refresh; catch-up is a separate job). */
   boardRefreshOnly?: boolean;
 }): Promise<OutOfBandCrawlReport> {
@@ -94,9 +99,16 @@ export async function runOutOfBandCrawl(opts: {
     now,
     seeds: boardSeeds.selected,
     onProgress: progress,
+    deadlineAtMs: (() => {
+      const budgetMs =
+        opts.refreshBudgetMs ?? parseCrawlRefreshBudgetMs(process.env.CRAWL_REFRESH_BUDGET_MS);
+      return budgetMs === undefined ? undefined : Date.now() + budgetMs;
+    })(),
   });
   progress?.(
-    `board refresh done: ${openingsRefresh.results.length} result(s)`,
+    openingsRefresh.stopped_early
+      ? `board refresh stopped early: ${openingsRefresh.results.length} of ${boardSeeds.selected.length} result(s)`
+      : `board refresh done: ${openingsRefresh.results.length} result(s)`,
   );
 
   let websiteIngest: WebsiteIngestReport | null = null;

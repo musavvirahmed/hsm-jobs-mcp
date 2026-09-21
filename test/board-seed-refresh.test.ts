@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import type { OpeningRecord } from "../src/jobs-index";
 import {
   loadBoardSeedsForOpeningRefresh,
+  parseCrawlRefreshBudgetMs,
   parseCrawlRefreshMaxSeeds,
   selectBoardSeedsForOpeningRefresh,
   type BoardSeedRefreshRow,
@@ -68,6 +69,13 @@ test("parseCrawlRefreshMaxSeeds treats 0 as uncapped and blanks as the default",
   expect(parseCrawlRefreshMaxSeeds("")).toBe(400);
   expect(parseCrawlRefreshMaxSeeds("0")).toBe(Number.POSITIVE_INFINITY);
   expect(parseCrawlRefreshMaxSeeds("250")).toBe(250);
+});
+
+test("parseCrawlRefreshBudgetMs treats blanks as no deadline", () => {
+  expect(parseCrawlRefreshBudgetMs(undefined)).toBeUndefined();
+  expect(parseCrawlRefreshBudgetMs("")).toBeUndefined();
+  expect(parseCrawlRefreshBudgetMs("0")).toBeUndefined();
+  expect(parseCrawlRefreshBudgetMs("8400000")).toBe(8_400_000);
 });
 
 test("listBoardSeedRefreshQueue joins openings in memory (live vs empty)", async () => {

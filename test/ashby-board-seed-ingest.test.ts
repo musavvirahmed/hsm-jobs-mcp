@@ -216,6 +216,73 @@ test("reingesting a known posting reuses the stored careers URL and does not re-
   expect(probed.some((url) => url.includes("/jobs/head-of-product-marketing"))).toBe(false);
 });
 
+test("unchanged board postings skip upsertOpening on reingest", async () => {
+  const { index } = await ingestRentmanGoldenPath();
+  let upserts = 0;
+  const wrapped = new Proxy(index, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (prop === "upsertOpening") {
+        return async (...args: unknown[]) => {
+          upserts += 1;
+          return (value as (...inner: unknown[]) => unknown).apply(target, args);
+        };
+      }
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  const report = await ingestFromBoardSeeds({
+    register: createFixtureRegister([RENTMAN], "2026-08-03"),
+    index: wrapped as typeof index,
+    fetchBoardFeed: recordedAshbyFeed([]),
+    getPage: fakeGetPage(rentmanPages()),
+    now: () => "2026-08-28T00:00:00Z",
+    seeds: [RENTMAN_ASHBY_BOARD_SEED],
+  });
+  expect(report.stopped_early).toBe(false);
+  expect(report.results[0]).toMatchObject({ status: "indexed", openings_written: 2 });
+  expect(upserts).toBe(0);
+});
+
+test("soft deadline stops the board queue before remaining seeds run", async () => {
+  const index = createEmptyWritableJobsIndex();
+  await index.recordWebsiteResolution({
+    kvk: "60733144",
+    official_website_host: "rentman.io",
+    now: NOW,
+  });
+  const secondSeed = {
+    ...RENTMAN_ASHBY_BOARD_SEED,
+    board_token: "rentman-b",
+    public_board_feed_url: "https://api.ashbyhq.com/posting-api/job-board/rentman-b",
+  };
+  let deadlineChecks = 0;
+  const progress: string[] = [];
+  const report = await ingestFromBoardSeeds({
+    register: createFixtureRegister([RENTMAN], "2026-08-03"),
+    index,
+    fetchBoardFeed: async (url) => {
+      if (url.includes("rentman-b")) {
+        throw new Error("second seed should not run after soft deadline");
+      }
+      return recordedAshbyFeed([])(url);
+    },
+    getPage: fakeGetPage(rentmanPages()),
+    now: () => NOW,
+    seeds: [RENTMAN_ASHBY_BOARD_SEED, secondSeed],
+    deadlineAtMs: 1_500,
+    clockMs: () => {
+      deadlineChecks += 1;
+      // First seed under budget; next loop iteration is past the soft deadline.
+      return deadlineChecks === 1 ? 1_000 : 2_000;
+    },
+    onProgress: (message) => progress.push(message),
+  });
+  expect(report.results).toHaveLength(1);
+  expect(report.stopped_early).toBe(true);
+  expect(progress.some((line) => /stopped early/.test(line))).toBe(true);
+});
+
 test("a failed board fetch does not clear known Openings", async () => {
   const { index } = await ingestRentmanGoldenPath();
   const failed = await ingestFromBoardSeeds({

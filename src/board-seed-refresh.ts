@@ -1,7 +1,10 @@
 import type { BoardSeed, WritableJobsIndex } from "./jobs-index";
 
-/** Fits the production `opening-refresh` 90m budget with sequential, polite fetches. */
+/** Fits a soft ~140m Actions budget with sequential, polite fetches (hard job kill is 150m). */
 export const DEFAULT_CRAWL_REFRESH_MAX_SEEDS = 400;
+
+/** Leave headroom under `opening-refresh` `timeout-minutes: 150`. */
+export const DEFAULT_CRAWL_REFRESH_BUDGET_MS = 140 * 60 * 1000;
 
 export type BoardSeedRefreshRow = BoardSeed & {
   updated_at: string;
@@ -39,6 +42,20 @@ export function parseCrawlRefreshMaxSeeds(
   if (raw.trim() === "0") return Number.POSITIVE_INFINITY;
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 0) return fallback;
+  return n;
+}
+
+/**
+ * Soft wall-clock budget for one Opening refresh. Empty / invalid → no deadline
+ * (local uncapped sweeps). Production sets `CRAWL_REFRESH_BUDGET_MS` so the
+ * process exits cleanly before the Actions hard kill.
+ */
+export function parseCrawlRefreshBudgetMs(
+  raw: string | undefined,
+): number | undefined {
+  if (raw === undefined || raw.trim() === "") return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
   return n;
 }
 
