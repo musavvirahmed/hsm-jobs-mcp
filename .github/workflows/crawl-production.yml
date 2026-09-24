@@ -57,6 +57,7 @@ jobs:
         run: curl -fsS "${SHARED_RELEASE_ORIGIN}/health"
       - uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: refresh-report
           path: refresh-report.json
@@ -115,6 +116,7 @@ jobs:
           fi
       - uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: catchup-report
           path: catchup-report.json
