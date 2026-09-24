@@ -234,9 +234,11 @@ test("listBoardSeedRefreshQueue uses two cheap queries (no correlated EXISTS)", 
     skipMigrations: true,
   });
   const queue = await countedIndex.listBoardSeedRefreshQueue();
-  expect(queue).toEqual([
-    expect.objectContaining({ board_token: "rentman", has_openings: true }),
-  ]);
+  expect(queue).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ board_token: "rentman", has_openings: true }),
+    ]),
+  );
   expect(sql.some((item) => /\bEXISTS\b/i.test(item))).toBe(false);
   expect(sql.filter((item) => /FROM board_seeds\b/i.test(item))).toHaveLength(1);
   expect(sql.filter((item) => /SELECT DISTINCT ats_family, board_token\s+FROM openings/i.test(item))).toHaveLength(

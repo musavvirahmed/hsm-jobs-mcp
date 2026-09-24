@@ -144,6 +144,8 @@ export type BoardIngestResult = {
 
 export type BoardIngestReport = {
   results: BoardIngestResult[];
+  /** True when the soft wall-clock budget stopped the queue before every seed ran. */
+  stopped_early: boolean;
 };
 
 export type LadderIngestResult = {
@@ -182,17 +184,32 @@ export async function ingestFromBoardSeeds(opts: {
   now?: () => string;
   /** When set, refresh only these seeds (capped daily queue). Default: all seeds. */
   seeds?: BoardSeed[];
+  /**
+   * Stop before starting another seed once `clockMs()` reaches this epoch ms.
+   * Finished seeds keep `updated_at`; remaining seeds stay for the next stale-first run.
+   */
+  deadlineAtMs?: number;
+  clockMs?: () => number;
   onProgress?: CrawlProgress;
 }): Promise<BoardIngestReport> {
   const now = opts.now ?? (() => new Date().toISOString());
   const stamp = now();
+  const clockMs = opts.clockMs ?? Date.now;
   const register = await opts.register.load();
   const sponsors = new Map(register.sponsors.map((row) => [row.kvk, row]));
   const seeds = opts.seeds ?? (await opts.index.listBoardSeeds());
   const results: BoardIngestResult[] = [];
   let anySuccess = false;
+  let stoppedEarly = false;
 
   for (let i = 0; i < seeds.length; i += 1) {
+    if (opts.deadlineAtMs !== undefined && clockMs() >= opts.deadlineAtMs) {
+      stoppedEarly = true;
+      opts.onProgress?.(
+        `board refresh stopped early at ${i}/${seeds.length} (soft deadline)`,
+      );
+      break;
+    }
     const seed = seeds[i]!;
     if (i === 0 || (i + 1) % 25 === 0 || i + 1 === seeds.length) {
       opts.onProgress?.(`board refresh ${i + 1}/${seeds.length}`);
@@ -218,7 +235,7 @@ export async function ingestFromBoardSeeds(opts: {
     await opts.index.setLastSuccessfulCrawl(stamp);
   }
 
-  return { results };
+  return { results, stopped_early: stoppedEarly };
 }
 
 /**
@@ -592,7 +609,7 @@ async function writeBoardJobs(opts: {
       primaryUrl = job.jobUrl;
     }
     seenPrimaryUrls.add(primaryUrl);
-    await ingestOpening(opts.index, {
+    const draft: OpeningDraft = {
       identity,
       primary_url: primaryUrl,
       careers_url: careersUrl,
@@ -608,7 +625,13 @@ async function writeBoardJobs(opts: {
       board_token: opts.boardToken,
       posting_id: job.id,
       ats_compensation: job.compensationSummary,
-    });
+    };
+    const next = openingFromDraft(draft);
+    // Steady-state boards re-see the same postings daily; skip remote D1 upsert RTTs
+    // when the stored Opening already matches the feed (+ honesty extract).
+    if (!prior || !openingRecordUnchanged(prior, next)) {
+      await opts.index.upsertOpening(next);
+    }
     written += 1;
   }
 
@@ -816,6 +839,29 @@ function registerJoinAtIndexTime(
     return { name: sponsor.name, kvk: sponsor.kvk, strength: "exact_kvk" };
   }
   return { name: null, kvk: null, strength: "unmatched" };
+}
+
+/** Pure equality for skip-unchanged board writes (every stored Opening field). */
+export function openingRecordUnchanged(prior: OpeningRecord, next: OpeningRecord): boolean {
+  return (
+    prior.identity === next.identity &&
+    prior.primary_url === next.primary_url &&
+    prior.careers_url === next.careers_url &&
+    prior.ats_url === next.ats_url &&
+    prior.title === next.title &&
+    prior.location === next.location &&
+    prior.jd_extract === next.jd_extract &&
+    prior.source_class === next.source_class &&
+    prior.honesty_salary === next.honesty_salary &&
+    prior.honesty_dutch_required === next.honesty_dutch_required &&
+    prior.honesty_sponsorship_willingness === next.honesty_sponsorship_willingness &&
+    prior.register_name === next.register_name &&
+    prior.register_kvk === next.register_kvk &&
+    prior.register_join_strength === next.register_join_strength &&
+    prior.ats_family === next.ats_family &&
+    prior.board_token === next.board_token &&
+    prior.posting_id === next.posting_id
+  );
 }
 
 async function careersUrlIfLive(

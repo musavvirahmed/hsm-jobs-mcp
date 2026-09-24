@@ -45,6 +45,8 @@ jobs:
           JOBS_INDEX_TARGET: remote-d1
           CRAWL_BOARD_REFRESH_ONLY: "1"
           CRAWL_REFRESH_MAX_SEEDS: "400"
+          # Soft stop ~10m before hard kill so catch-up still runs on slow days.
+          CRAWL_REFRESH_BUDGET_MS: "8400000"
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

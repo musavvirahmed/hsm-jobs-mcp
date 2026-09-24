@@ -23,6 +23,7 @@ Copy [`.env.example`](../.env.example) to `.env`. Cloudflare bootstrap keys are 
 | `PRIVATE_RELEASE_PORT` | `8787` | Local dev port (`private-release:integration` may pick a free port when unset) |
 | `CRAWL_MAX_ATTEMPTS` | (all missing) | Optional cap on missing KvKs per `crawl:full-pass` |
 | `CRAWL_REFRESH_MAX_SEEDS` | `400` | Cap on board seeds per Opening refresh. `0` = no cap. Live boards first, then least-recently refreshed |
+| `CRAWL_REFRESH_BUDGET_MS` | unset | Soft wall-clock budget for Opening refresh. Production sets `8400000` (140m) so the job exits before the Actions hard kill; stale-first resumes next run |
 | `CRAWL_BOARD_REFRESH_ONLY` | unset | When `1`/`true`, `npm run crawl` skips website/ladder (production opening-refresh job) |
 | `REMOTE_D1_SKIP_MIGRATIONS` | unset | When `1`/`true`, skip `wrangler d1 migrations apply --remote` on each remote-d1 crawl open (schema already applied). Re-apply once after any new `migrations/*.sql` lands before setting skip again. |
 | `HSM_MCP_ORIGIN` | `https://hsm.codealan.com` | Live Work-register source for production crawl |
@@ -164,7 +165,7 @@ From `catchup-report.json` (and `refresh-report.json` when present):
 
 | Check | Fail |
 | ----- | ---- |
-| Catch-up job succeeded (opening-refresh may cancel at 150m while still `partial`) | Fix secrets/logs; do not enable schedule |
+| Catch-up job succeeded (opening-refresh may stop early on soft budget while still `partial`) | Fix secrets/logs; do not enable schedule |
 | `jobs_index_target` is `remote-d1` | Re-check secrets |
 | `attempted` ≈ cap (or remaining missing) | Inspect logs |
 | `missing_terminal_outcomes_after` ≈ `missing_terminal_outcomes_before - attempted` | Egress or D1 quota → step 8; do not enable schedule |
