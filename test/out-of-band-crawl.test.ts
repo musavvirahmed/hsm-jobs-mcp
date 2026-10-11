@@ -178,6 +178,51 @@ test("register refresh with a new KvK forces partial and attempts the missing te
   });
 });
 
+test("opening-refresh abort before reconcile keeps full_careers_pass", async () => {
+  const { index } = await seedRentmanBoard();
+  await index.setPass("full_careers_pass");
+  expect((await index.snapshot()).index_scope.pass).toBe("full_careers_pass");
+
+  await expect(
+    runOutOfBandCrawl({
+      register: createFixtureRegister([RENTMAN, ACME], "2026-09-01"),
+      index,
+      fetchBoardFeed: async () => {
+        throw new Error("ETIMEDOUT");
+      },
+      providers: {
+        wikidata: { websiteForKvk: async () => null },
+        getPage: async () => null,
+      },
+      now: () => LATER,
+      boardRefreshOnly: true,
+    }),
+  ).rejects.toThrow(/ETIMEDOUT/);
+
+  expect((await index.snapshot()).index_scope.pass).toBe("full_careers_pass");
+});
+
+test("completed boardRefreshOnly with a missing KvK reconciles to partial", async () => {
+  const { index } = await seedRentmanBoard();
+  await index.setPass("full_careers_pass");
+
+  const report = await runOutOfBandCrawl({
+    register: createFixtureRegister([RENTMAN, ACME], "2026-09-01"),
+    index,
+    fetchBoardFeed: recordedAshbyFeed([]),
+    providers: {
+      wikidata: { websiteForKvk: async () => null },
+      getPage: async () => null,
+    },
+    now: () => LATER,
+    boardRefreshOnly: true,
+  });
+
+  expect(report.re_partialed).toBe(true);
+  expect(report.missing_terminal_outcomes_after).toBe(1);
+  expect((await index.snapshot()).index_scope.pass).toBe("partial");
+});
+
 test("repeated crawl failure fires the alert hook once the threshold is reached", async () => {
   const { index } = await seedRentmanBoard();
   const alerts: CrawlAlert[] = [];
