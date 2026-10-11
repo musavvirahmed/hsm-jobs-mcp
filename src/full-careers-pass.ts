@@ -56,11 +56,8 @@ export async function runFullCareersPass(opts: {
   });
 
   const missingBefore = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
-  let rePartialed = false;
-  if (missingBefore.length > 0) {
-    await opts.index.setPass("partial");
-    rePartialed = true;
-  }
+  // Pass leaves full_careers_pass only via reconcileIndexPass below.
+  const rePartialed = missingBefore.length > 0;
 
   const budget = opts.maxAttempts ?? missingBefore.length;
   const batch = missingBefore.slice(0, Math.max(0, budget));

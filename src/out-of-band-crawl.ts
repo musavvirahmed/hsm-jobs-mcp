@@ -39,10 +39,11 @@ export type OutOfBandCrawlReport = {
 };
 
 /**
- * Out-of-band Opening refresh + register-refresh re-partial.
+ * Out-of-band Opening refresh + register-aware pass reconcile.
  * MCP tools stay read-only; this plane writes the durable jobs index.
- * Restores `full_careers_pass` when every current-register KvK has a terminal
- * careers outcome (same reconcile as the full careers pass runner).
+ * Reconciles pass at end of job only (no eager re-partial). Restores
+ * `full_careers_pass` when every current-register KvK has a terminal careers
+ * outcome (same reconcile as the full careers pass runner).
  */
 export async function runOutOfBandCrawl(opts: {
   register: RegisterSource;
@@ -75,12 +76,8 @@ export async function runOutOfBandCrawl(opts: {
   });
 
   const missingBefore = await listMissingTerminalOutcomeKvks(opts.index, register.sponsors);
-
-  let rePartialed = false;
-  if (missingBefore.length > 0) {
-    await opts.index.setPass("partial");
-    rePartialed = true;
-  }
+  // Pass leaves full_careers_pass only via reconcileIndexPass below.
+  const rePartialed = missingBefore.length > 0;
 
   const boardSeeds = await loadBoardSeedsForOpeningRefresh(opts.index, {
     maxSeeds: opts.maxRefreshSeeds,
